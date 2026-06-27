@@ -56,10 +56,11 @@ mobile/
 docs/
 scripts/
 graphify-out/
-best.onnx
-pill_classifier.onnx
-pill_classifier.onnx.data
-pill_labels.txt
+# Exclude root duplicates of models, but allow them inside the ai folder
+/best.onnx
+/pill_classifier.onnx
+/pill_classifier.onnx.data
+/pill_labels.txt
 
 # Logs
 *.log
