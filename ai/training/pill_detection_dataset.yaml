@@ -1,0 +1,31 @@
+# PillScan — YOLOv8 Pill Detection Dataset Configuration
+# ======================================================
+#
+# Single-class object detection: "pill"
+# The detector localizes pills in photos before the classifier identifies them.
+#
+# Dataset directory structure:
+#   /content/yolo_dataset/
+#     images/
+#       train/
+#         img_001.jpg
+#       val/
+#         img_101.jpg
+#     labels/
+#       train/
+#         img_001.txt   # YOLO format: class_id cx cy w h (normalized)
+#       val/
+#         img_101.txt
+
+path: /content/yolo_dataset  # Root directory
+train: images/train          # Train images (relative to path)
+val: images/val              # Validation images (relative to path)
+
+# Single-class detection
+nc: 1
+names:
+  0: pill
+
+# Training hyperparameters (override via CLI)
+# Optimized for pill detection from mobile phone cameras
+# Expected input: 640x640, ~300-500 pills per training run

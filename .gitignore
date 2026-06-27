@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE and Agent environments
+.idea/
+.vscode/
+.agents/
+*.swp
+*.swo
+*.iml
+
+# Environment
+.env
+*.env.local
+
+# Database
+*.db
+*.sqlite3
+test_pillscan.db
+
+# Uploads (user images)
+uploads/
+
+# AI Models (Allow models inside the ai project)
+ai/data/raw/
+ai/data/augmented/
+dataset/
+runs/
+wandb/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+.docker/
+
+# Exclude Mobile App entirely (as requested: "only keep backend, frontend, and ai")
+mobile/
+
+# Exclude Document folders and helper scripts
+docs/
+scripts/
+graphify-out/
+best.onnx
+pill_classifier.onnx
+pill_classifier.onnx.data
+pill_labels.txt
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Temp files
+extracted_text.txt
+*.tmp
+*.bak

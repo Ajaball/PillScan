@@ -1,0 +1,82 @@
+# PillScan — Docker Compose (Development)
+# Run: docker-compose up -d
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: pillscan-db
+    environment:
+      POSTGRES_DB: pillscan_db
+      POSTGRES_USER: pillscan
+      POSTGRES_PASSWORD: pillscan_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pillscan -d pillscan_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: pillscan-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ────────────────────────────────────────────────
+  api:
+    build: ./backend
+    container_name: pillscan-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pillscan:pillscan_password@db:5432/pillscan_db
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      DEBUG: "true"
+      JWT_SECRET_KEY: docker-dev-secret-key-change-in-production
+      AI_SERVICE_URL: http://ai-service:8001
+    volumes:
+      - ./backend:/app
+      - upload_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── AI Inference Service ───────────────────────────────────────────
+  ai-service:
+    build: ./ai
+    container_name: pillscan-ai
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai:/app
+      - model_data:/app/models
+    environment:
+      MODEL_PATH: /app/models
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  pgdata:
+  upload_data:
+  model_data:
