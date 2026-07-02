@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl" data-theme="dark" data-lang="ar">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>PillScan — ماسح الأدوية الذكي</title>
   
   <!-- SEO Meta Tags -->
@@ -12,14 +12,20 @@
 
   <!-- PWA & Mobile Optimization -->
   <meta name="theme-color" content="#0B0F1A">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PillScan">
-  
+
   <!-- Manifest & Icons -->
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/assets/icons/icon-96.png">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+
+  <!-- Fonts: preconnect for faster first paint -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <!-- Core Stylesheets -->
   <link rel="stylesheet" href="/css/design-system.css">

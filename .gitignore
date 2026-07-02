@@ -18,6 +18,7 @@ env/
 .idea/
 .vscode/
 .agents/
+.claude/
 *.swp
 *.swo
 *.iml

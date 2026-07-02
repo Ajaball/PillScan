@@ -5,8 +5,7 @@ Stores medication reminder schedules and notification preferences.
 
 import uuid
 from datetime import datetime, time
-from sqlalchemy import String, Boolean, DateTime, Time, ForeignKey, func, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Boolean, DateTime, Time, ForeignKey, func, JSON, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -15,13 +14,13 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     medication_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("medications.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("medications.id", ondelete="CASCADE"), nullable=False
     )
     reminder_time: Mapped[time] = mapped_column(Time, nullable=False)
     days_of_week: Mapped[dict | None] = mapped_column(

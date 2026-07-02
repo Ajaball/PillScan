@@ -5,8 +5,7 @@ Tracks whether users took, skipped, or missed their medications.
 
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, DateTime, Text, ForeignKey, func, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -15,13 +14,13 @@ class AdherenceLog(Base):
     __tablename__ = "adherence_log"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     medication_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("medications.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("medications.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(
         String(20), nullable=False  # 'taken' | 'skipped' | 'missed'

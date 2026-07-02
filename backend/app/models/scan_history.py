@@ -5,8 +5,7 @@ Records every pill scan performed by a user, including AI predictions.
 
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Float, DateTime, ForeignKey, func, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Float, DateTime, ForeignKey, func, JSON, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -15,13 +14,13 @@ class ScanHistory(Base):
     __tablename__ = "scan_history"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     identified_drug_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drugs.id", ondelete="SET NULL"), nullable=True
+        Uuid, ForeignKey("drugs.id", ondelete="SET NULL"), nullable=True
     )
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)

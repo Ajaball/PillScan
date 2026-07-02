@@ -33,6 +33,7 @@ class App {
     // Apply theme
     const theme = storage.getTheme();
     document.documentElement.setAttribute('data-theme', theme);
+    this.syncThemeColor();
 
     // Apply font scale
     const scale = storage.getFontScale();
@@ -96,6 +97,23 @@ class App {
     router.register('/reminders', RemindersPage, { auth: true, showNavbar: false });
     router.register('/adherence', AdherencePage, { auth: true, showNavbar: true });
     router.register('/profile', ProfilePage, { auth: true, showNavbar: true });
+  }
+
+  /** Keep the browser chrome color in sync with the active theme */
+  syncThemeColor() {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+
+    const apply = () => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      meta.setAttribute('content', isLight ? '#F8FAFC' : '#0B0F1A');
+    };
+    apply();
+
+    new MutationObserver(apply).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
   }
 
   async registerServiceWorker() {

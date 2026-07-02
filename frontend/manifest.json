@@ -2,6 +2,7 @@
   "name": "PillScan — ماسح الأدوية الذكي",
   "short_name": "PillScan",
   "description": "AI-Powered Medication Identification & Management — تطبيق التعرف على الأدوية بالذكاء الاصطناعي",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -46,7 +47,7 @@
       "src": "/assets/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/assets/icons/icon-384.png",
@@ -58,7 +59,19 @@
       "src": "/assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],
@@ -67,13 +80,13 @@
       "name": "فحص دواء",
       "short_name": "فحص",
       "url": "/#/scanner",
-      "icons": []
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "أدويتي",
       "short_name": "أدويتي",
       "url": "/#/medications",
-      "icons": []
+      "icons": [{ "src": "/assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

@@ -6,8 +6,7 @@ Designed for bilingual (Arabic/English) content.
 
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey, func, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -16,7 +15,7 @@ class Drug(Base):
     __tablename__ = "drugs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     # Drug identification
     name_en: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -73,10 +72,10 @@ class DrugImage(Base):
     __tablename__ = "drug_images"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     drug_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
     )
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
     image_type: Mapped[str] = mapped_column(
@@ -95,10 +94,10 @@ class DrugSideEffect(Base):
     __tablename__ = "drug_side_effects"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     drug_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
     )
     effect_en: Mapped[str] = mapped_column(String(500), nullable=False)
     effect_ar: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -114,10 +113,10 @@ class DrugContraindication(Base):
     __tablename__ = "drug_contraindications"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     drug_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False
     )
     contraindication_en: Mapped[str] = mapped_column(String(500), nullable=False)
     contraindication_ar: Mapped[str] = mapped_column(String(500), nullable=False)

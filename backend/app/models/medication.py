@@ -6,8 +6,7 @@ with custom dosage, frequency, and schedule information.
 
 import uuid
 from datetime import datetime, date, time
-from sqlalchemy import String, Boolean, DateTime, Date, Time, Text, ForeignKey, func, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Boolean, DateTime, Date, Time, Text, ForeignKey, func, JSON, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -16,13 +15,13 @@ class Medication(Base):
     __tablename__ = "medications"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     drug_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drugs.id", ondelete="SET NULL"), nullable=True
+        Uuid, ForeignKey("drugs.id", ondelete="SET NULL"), nullable=True
     )
     # User-customizable fields
     custom_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
