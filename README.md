@@ -63,6 +63,28 @@ python -m app.seed
 python -m uvicorn app.main:app --port 8005 --reload
 ```
 
+### 📄 Leaflet Summarizer (Arabic AI Summary)
+
+The app can scan the leaflet/prescription paper found inside a medicine box and
+return a plain-language **Arabic** summary using a vision-capable LLM.
+
+* **Endpoint:** `POST /api/v1/leaflet/summarize` (multipart image upload)
+* **Screens:** Home → "تلخيص نشرة الدواء" → camera/upload → summary page
+* **Provider:** switchable via `LLM_PROVIDER` (`gemini` | `openai`)
+
+Set the key for your provider in `backend/.env`:
+
+```bash
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-key-here
+# or, to use ChatGPT:
+# LLM_PROVIDER=openai
+# OPENAI_API_KEY=your-key-here
+```
+
+If no key is set, the endpoint still responds with a clear setup message
+(so the full flow can be demonstrated) instead of failing.
+
 ### 3. Web Client (`frontend`)
 To view the user dashboard and test image uploads with real-time bounding box canvas overlay:
 

@@ -12,7 +12,7 @@ import os
 
 from app.config import get_settings
 from app.database import create_tables
-from app.routers import auth, users, drugs, scan, medications, reminders, adherence
+from app.routers import auth, users, drugs, scan, medications, reminders, adherence, leaflet
 
 settings = get_settings()
 
@@ -84,6 +84,7 @@ app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(users.router, prefix=API_PREFIX)
 app.include_router(drugs.router, prefix=API_PREFIX)
 app.include_router(scan.router, prefix=API_PREFIX)
+app.include_router(leaflet.router, prefix=API_PREFIX)
 app.include_router(medications.router, prefix=API_PREFIX)
 app.include_router(reminders.router, prefix=API_PREFIX)
 app.include_router(adherence.router, prefix=API_PREFIX)

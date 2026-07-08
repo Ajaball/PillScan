@@ -115,6 +115,17 @@ const translations = {
     new_scan: 'فحص جديد',
     no_results: 'لم يتم التعرف على الدواء',
 
+    // ── Leaflet Summary ────────────────────────────────────────────
+    leaflet_card_title: 'تلخيص نشرة الدواء',
+    leaflet_card_desc: 'صوّر النشرة أو الوصفة واحصل على ملخّص بالعربي',
+    leaflet_title: 'مسح النشرة',
+    leaflet_hint: 'ضع نشرة الدواء أو الوصفة داخل الإطار',
+    leaflet_summarizing: 'جاري قراءة النشرة وتلخيصها...',
+    leaflet_summary_title: 'ملخّص النشرة',
+    leaflet_ai_summary: 'ملخّص بالذكاء الاصطناعي',
+    leaflet_no_summary: 'لا يوجد ملخّص لعرضه',
+    leaflet_new_scan: 'مسح نشرة جديدة',
+
     // ── Drug Details ───────────────────────────────────────────────
     drug_details: 'تفاصيل الدواء',
     generic_name: 'الاسم العلمي',
@@ -333,6 +344,17 @@ const translations = {
     add_to_meds: 'Add to My Medications',
     new_scan: 'New Scan',
     no_results: 'Could not identify the pill',
+
+    // ── Leaflet Summary ────────────────────────────────────────────
+    leaflet_card_title: 'Summarize Leaflet',
+    leaflet_card_desc: 'Scan a leaflet or prescription for an Arabic summary',
+    leaflet_title: 'Scan Leaflet',
+    leaflet_hint: 'Place the leaflet or prescription inside the frame',
+    leaflet_summarizing: 'Reading and summarizing the leaflet...',
+    leaflet_summary_title: 'Leaflet Summary',
+    leaflet_ai_summary: 'AI Summary',
+    leaflet_no_summary: 'No summary to display',
+    leaflet_new_scan: 'Scan New Leaflet',
 
     // ── Drug Details ───────────────────────────────────────────────
     drug_details: 'Drug Details',

@@ -854,3 +854,42 @@
   .calendar-grid { gap: 6px; }
   .cal-cell { font-size: var(--font-size-sm); }
 }
+
+/* ═══ Leaflet Summary ════════════════════════════════════════════════ */
+
+.leaflet-summary-body {
+  line-height: 1.8;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.leaflet-summary-heading {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.leaflet-summary-heading:first-child {
+  margin-top: 0;
+}
+
+.leaflet-summary-para {
+  margin: var(--space-2) 0;
+}
+
+.leaflet-summary-list {
+  margin: var(--space-2) 0;
+  padding-inline-start: var(--space-5);
+  list-style: disc;
+}
+
+.leaflet-summary-list li {
+  margin: var(--space-1) 0;
+}
+
+.leaflet-summary-body strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}

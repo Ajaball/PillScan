@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PillScan PWA — Leaflet Scanner Page
+   Scan a medication leaflet / prescription and get an Arabic AI summary
+   ═══════════════════════════════════════════════════════════════════ */
+
+import i18n from '../js/i18n.js';
+import router from '../js/router.js';
+import api from '../js/api.js';
+import storage from '../js/storage.js';
+import toast from '../components/toast.js';
+
+const LeafletScannerPage = {
+  stream: null,
+  videoEl: null,
+
+  render() {
+    return `
+      <div class="scanner-screen">
+        <div class="scanner-header">
+          <button class="btn btn-icon" id="leaflet-back" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border-radius:50%;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M9 18l6-6-6-6' : 'M15 18l-6-6 6-6'}"/></svg>
+          </button>
+          <h1 class="scanner-title">${i18n.t('leaflet_title')}</h1>
+          <div style="width:48px;"></div>
+        </div>
+
+        <div class="scanner-viewport">
+          <video id="leaflet-video" autoplay playsinline muted></video>
+          <canvas id="leaflet-canvas" class="hidden"></canvas>
+
+          <!-- Document frame overlay -->
+          <div class="scan-frame" style="aspect-ratio:3/4;width:80%;max-width:320px;">
+            <div class="scan-corner top-left"></div>
+            <div class="scan-corner top-right"></div>
+            <div class="scan-corner bottom-left"></div>
+            <div class="scan-corner bottom-right"></div>
+            <div class="scan-line"></div>
+          </div>
+
+          <!-- Hint text -->
+          <div class="scanner-hint">
+            <p>${i18n.t('leaflet_hint')}</p>
+          </div>
+
+          <!-- Camera error state -->
+          <div class="camera-error hidden" id="leaflet-camera-error">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="1.5" stroke-linecap="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+              <line x1="1" y1="1" x2="23" y2="23" stroke="var(--color-error)"/>
+            </svg>
+            <p class="text-secondary mt-3">${i18n.t('camera_permission')}</p>
+            <button class="btn btn-primary btn-sm mt-3" id="leaflet-retry-camera">${i18n.t('retry')}</button>
+          </div>
+        </div>
+
+        <div class="scanner-controls">
+          <!-- Upload from gallery -->
+          <label class="btn btn-icon btn-secondary scanner-control-btn" for="leaflet-file-input">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </label>
+          <input type="file" id="leaflet-file-input" accept="image/*" class="hidden">
+
+          <!-- Capture button -->
+          <button class="scanner-capture-btn" id="leaflet-capture-btn">
+            <span class="capture-ring"></span>
+            <span class="capture-dot"></span>
+          </button>
+
+          <!-- Placeholder for symmetry -->
+          <div class="scanner-control-btn" style="visibility:hidden;width:48px;"></div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div class="scanner-loading hidden" id="leaflet-loading">
+          <div class="scanner-loading-content">
+            <div class="loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <p class="mt-3">${i18n.t('leaflet_summarizing')}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  async mount() {
+    this.videoEl = document.getElementById('leaflet-video');
+
+    document.getElementById('leaflet-back')?.addEventListener('click', () => router.back());
+    document.getElementById('leaflet-capture-btn')?.addEventListener('click', () => this.capture());
+    document.getElementById('leaflet-retry-camera')?.addEventListener('click', () => this.startCamera());
+
+    // File upload
+    document.getElementById('leaflet-file-input')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) this.processImage(file);
+    });
+
+    // Start camera
+    await this.startCamera();
+  },
+
+  async startCamera() {
+    document.getElementById('leaflet-camera-error')?.classList.add('hidden');
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      });
+
+      if (this.videoEl) {
+        this.videoEl.srcObject = this.stream;
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      document.getElementById('leaflet-camera-error')?.classList.remove('hidden');
+    }
+  },
+
+  capture() {
+    if (!this.videoEl || !this.stream) {
+      toast.warning(i18n.t('camera_error'));
+      return;
+    }
+
+    if (navigator.vibrate) navigator.vibrate(50);
+
+    const canvas = document.getElementById('leaflet-canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = this.videoEl.videoWidth;
+    canvas.height = this.videoEl.videoHeight;
+    ctx.drawImage(this.videoEl, 0, 0);
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], 'leaflet-scan.jpg', { type: 'image/jpeg' });
+        this.processImage(file);
+      }
+    }, 'image/jpeg', 0.92);
+  },
+
+  async processImage(imageFile) {
+    const loading = document.getElementById('leaflet-loading');
+    loading?.classList.remove('hidden');
+
+    try {
+      // Read image as Data URL so the summary page can show it without CORS issues
+      const imageDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+
+      const result = await api.summarizeLeaflet(imageFile);
+
+      result._local_image = imageDataUrl;
+      storage.set('last_leaflet_summary', result);
+
+      router.navigate('/leaflet-summary');
+    } catch (error) {
+      toast.error(error.message || i18n.t('error_generic'));
+    } finally {
+      loading?.classList.add('hidden');
+    }
+  },
+
+  stopCamera() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+  },
+
+  unmount() {
+    this.stopCamera();
+  }
+};
+
+export default LeafletScannerPage;

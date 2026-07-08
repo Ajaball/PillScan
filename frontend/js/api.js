@@ -208,6 +208,13 @@ class ApiClient {
     return this.upload('/scan/identify', formData);
   }
 
+  /** Summarize a medication leaflet / prescription photo in Arabic (vision LLM) */
+  async summarizeLeaflet(imageFile) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    return this.upload('/leaflet/summarize', formData);
+  }
+
   getScanHistory(page = 1) {
     return this.get(`/scan/history?page=${page}`);
   }

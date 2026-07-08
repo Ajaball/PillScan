@@ -39,6 +39,22 @@ class Settings(BaseSettings):
     AI_MODEL_PATH: str = "./ai/models"
     AI_CONFIDENCE_THRESHOLD: float = 0.5
 
+    # ── Leaflet Summarizer (Vision LLM) ──────────────────────────────────
+    # Reads a medication leaflet / prescription image and returns an Arabic
+    # summary. Provider is switchable — set the API key for whichever you use.
+    LLM_PROVIDER: str = "gemini"  # gemini | openai
+    LLM_TIMEOUT_SECONDS: int = 60
+
+    # Google Gemini
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta"
+
+    # OpenAI (ChatGPT)
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_API_BASE: str = "https://api.openai.com/v1"
+
     # ── AWS S3 (Image Storage) ───────────────────────────────────────────
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None

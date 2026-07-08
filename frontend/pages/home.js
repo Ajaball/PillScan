@@ -44,6 +44,25 @@ const HomePage = {
           </div>
         </div>
 
+        <!-- Leaflet Summary Button -->
+        <div class="card card-interactive mt-4" id="leaflet-scan-card">
+          <div class="flex items-center gap-3">
+            <div class="med-card-icon" style="flex-shrink:0;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="8" y1="13" x2="16" y2="13"/>
+                <line x1="8" y1="17" x2="14" y2="17"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-sm">${i18n.t('leaflet_card_title')}</h3>
+              <p class="text-xs text-secondary">${i18n.t('leaflet_card_desc')}</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+          </div>
+        </div>
+
         <!-- Weekly Adherence -->
         <div class="section mt-6">
           <div class="flex items-center justify-between mb-3">
@@ -112,6 +131,11 @@ const HomePage = {
     // Quick scan
     document.getElementById('quick-scan-card')?.addEventListener('click', () => {
       router.navigate('/scanner');
+    });
+
+    // Leaflet summary scan
+    document.getElementById('leaflet-scan-card')?.addEventListener('click', () => {
+      router.navigate('/leaflet-scanner');
     });
 
     // Search button

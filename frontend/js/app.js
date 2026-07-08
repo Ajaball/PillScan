@@ -16,6 +16,8 @@ import RegisterPage from '../pages/register.js';
 import HomePage from '../pages/home.js';
 import ScannerPage from '../pages/scanner.js';
 import ScanResultsPage from '../pages/scan-results.js';
+import LeafletScannerPage from '../pages/leaflet-scanner.js';
+import LeafletSummaryPage from '../pages/leaflet-summary.js';
 import DrugDetailsPage from '../pages/drug-details.js';
 import DrugSearchPage from '../pages/drug-search.js';
 import MedicationsPage from '../pages/medications.js';
@@ -91,6 +93,8 @@ class App {
     router.register('/home', HomePage, { auth: true, showNavbar: true });
     router.register('/scanner', ScannerPage, { auth: true, showNavbar: false });
     router.register('/scan-results', ScanResultsPage, { auth: true, showNavbar: false });
+    router.register('/leaflet-scanner', LeafletScannerPage, { auth: true, showNavbar: false });
+    router.register('/leaflet-summary', LeafletSummaryPage, { auth: true, showNavbar: false });
     router.register('/drug/:id', DrugDetailsPage, { auth: true, showNavbar: false });
     router.register('/drug-search', DrugSearchPage, { auth: true, showNavbar: true });
     router.register('/medications', MedicationsPage, { auth: true, showNavbar: true });
