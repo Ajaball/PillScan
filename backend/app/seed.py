@@ -355,16 +355,18 @@ async def seed_database():
         if user_count == 0:
             print("   [INFO] Seeding default demo user...")
             from app.services.auth_service import hash_password
+            from app.config import get_settings
+            _s = get_settings()
             demo_user = User(
-                email="admin@pillscan.com",
-                password_hash=hash_password("admin123"),
+                email=_s.ADMIN_EMAIL,
+                password_hash=hash_password(_s.ADMIN_PASSWORD),
                 full_name="PillScan Admin",
                 language="ar",
                 is_admin=True
             )
             session.add(demo_user)
             await session.flush()
-            print("   [SUCCESS] Seeded default user: admin@pillscan.com / admin123")
+            print(f"   [SUCCESS] Seeded default admin user: {_s.ADMIN_EMAIL}")
 
         if count > 0:
             print(f"   [INFO] Database already has {count} drugs. Skipping seed.")

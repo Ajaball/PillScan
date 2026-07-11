@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     AWS_REGION: str = "me-south-1"  # Bahrain region (closest to Saudi Arabia)
     S3_BUCKET_NAME: str = "pillscan-images"
 
+    # ── Database Seeding ─────────────────────────────────────────────────
+    # Auto-populate the default admin user + drug catalog on startup. Very
+    # handy on hosts with an ephemeral filesystem (e.g. Render free tier),
+    # where the SQLite file is wiped on every deploy. Idempotent — it skips
+    # anything that already exists. Set SEED_ON_STARTUP=false to disable.
+    SEED_ON_STARTUP: bool = True
+    ADMIN_EMAIL: str = "admin@pillscan.com"
+    ADMIN_PASSWORD: str = "admin123"  # override via env var in production!
+
     # ── Rate Limiting ────────────────────────────────────────────────────
     RATE_LIMIT_PER_MINUTE: int = 60
 

@@ -34,6 +34,16 @@ async def lifespan(app: FastAPI):
     await ensure_new_columns()  # add any columns introduced after initial schema
     print("   [SUCCESS] Database tables created/verified")
 
+    # Auto-seed the default admin user + drug catalog. Idempotent, and crucial
+    # on ephemeral hosts (Render free tier wipes the SQLite file each deploy).
+    if settings.SEED_ON_STARTUP:
+        try:
+            from app.seed import seed_database
+            await seed_database()
+            print("   [SUCCESS] Database seed verified")
+        except Exception as exc:  # never let seeding crash startup
+            print(f"   [WARN] Seeding skipped due to error: {exc}")
+
     # Ensure upload directories exist
     os.makedirs("uploads/scans", exist_ok=True)
     print("   [SUCCESS] Upload directories ready")
