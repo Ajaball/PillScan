@@ -5,9 +5,16 @@
 
 import storage from './storage.js';
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-  ? 'http://localhost:8005/api/v1' 
-  : '/api/v1';
+// In production the frontend (pillscan-web) and backend (pillscan-api) live on
+// different Render subdomains, so we call the backend by its ABSOLUTE URL.
+// Using a same-origin proxy caused FastAPI's trailing-slash 307 redirect to
+// bounce cross-origin, which made the browser drop the Authorization header
+// (→ 403). Talking to the backend directly keeps that redirect same-origin, so
+// the auth header survives. CORS on the backend already allows this origin.
+// Override at runtime by setting window.PILLSCAN_API_BASE before this loads.
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:8005/api/v1'
+  : (window.PILLSCAN_API_BASE || 'https://pillscan-api.onrender.com/api/v1');
 
 class ApiClient {
   constructor() {

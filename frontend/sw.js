@@ -3,7 +3,7 @@
    Network-first for HTML & API, Stale-while-revalidate for assets
    ═══════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE_NAME = `pillscan-${VERSION}`;
 const API_CACHE = `pillscan-api-${VERSION}`;
 const FONT_CACHE = `pillscan-fonts-${VERSION}`;
