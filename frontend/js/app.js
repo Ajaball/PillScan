@@ -24,6 +24,7 @@ import MedicationsPage from '../pages/medications.js';
 import RemindersPage from '../pages/reminders.js';
 import AdherencePage from '../pages/adherence.js';
 import ProfilePage from '../pages/profile.js';
+import AISettingsPage from '../pages/ai-settings.js';
 
 class App {
   async init() {
@@ -101,6 +102,7 @@ class App {
     router.register('/reminders', RemindersPage, { auth: true, showNavbar: false });
     router.register('/adherence', AdherencePage, { auth: true, showNavbar: true });
     router.register('/profile', ProfilePage, { auth: true, showNavbar: true });
+    router.register('/ai-settings', AISettingsPage, { auth: true, showNavbar: false });
   }
 
   /** Keep the browser chrome color in sync with the active theme */

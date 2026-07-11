@@ -1,0 +1,90 @@
+# PillScan — Render Blueprint (all 3 projects from one repo)
+# ===========================================================================
+# This single file deploys the whole project on Render and fixes the
+# "open Dockerfile: no such file or directory" error by pointing Render at the
+# Dockerfile *inside each subfolder* (Render looks at the repo root by default).
+#
+#   pillscan-api  ->  FastAPI backend  (Docker, ./backend)   uses SQLite
+#   pillscan-ai   ->  AI inference     (Docker, ./ai)
+#   pillscan-web  ->  Frontend PWA     (static, ./frontend)
+#
+# HOW TO DEPLOY:
+#   1. Commit & push this repo to GitHub (make sure render.yaml is included).
+#   2. Render dashboard: New +  ->  Blueprint  ->  pick the PillScan repo.
+#   3. Render reads this file and creates all three services.
+#   4. After the FIRST deploy, note the REAL URLs Render assigns (the names
+#      below may get a random suffix if taken). Then:
+#        - open  pillscan-api  -> Environment -> set GEMINI_API_KEY
+#        - open  pillscan-api  -> Environment -> set AI_SERVICE_URL to the real
+#          pillscan-ai URL (https://pillscan-ai-XXXX.onrender.com)
+#        - edit the two rewrite destinations under pillscan-web below to the
+#          real pillscan-api URL, commit, and redeploy.
+#
+# NOTE ON SQLite: Render's free filesystem is EPHEMERAL — the SQLite file is
+# wiped on every deploy/restart, so data resets. That is fine for a demo. For
+# permanent storage, attach a paid Render Disk mounted at /app, or switch to a
+# managed PostgreSQL database.
+# ===========================================================================
+
+services:
+  # ── FastAPI Backend (Docker + SQLite) ─────────────────────────────────
+  - type: web
+    name: pillscan-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend          # <-- the fix: build from backend/, not repo root
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      # SQLite (async driver). File lives inside the container (ephemeral).
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./pillscan.db
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["*"]'
+      # Point the backend at the AI service. Update to the REAL pillscan-ai URL
+      # after the first deploy (see notes above).
+      - key: AI_SERVICE_URL
+        value: https://pillscan-ai.onrender.com
+      # ── Leaflet / prescription AI summary ──
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false                   # paste your key in the dashboard
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # ── AI Inference Service (Docker) ─────────────────────────────────────
+  - type: web
+    name: pillscan-ai
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./ai/Dockerfile
+    dockerContext: ./ai
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # ── Frontend PWA (static site) ────────────────────────────────────────
+  - type: web
+    name: pillscan-web
+    runtime: static
+    staticPublishPath: ./frontend
+    autoDeploy: true
+    # Keep the frontend on the same origin as the API by proxying these paths
+    # to the backend. Update the destinations to the REAL pillscan-api URL
+    # after the first deploy.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://pillscan-api.onrender.com/api/*
+      - type: rewrite
+        source: /uploads/*
+        destination: https://pillscan-api.onrender.com/uploads/*

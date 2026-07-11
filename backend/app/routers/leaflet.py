@@ -53,8 +53,10 @@ async def summarize_leaflet(
         )
 
     # ── Vision LLM Summarization ──────────────────────────────────────
+    # Pass the user so their own API key / provider (set in app settings) is
+    # preferred over the server-wide .env defaults.
     try:
-        result = await leaflet_service.summarize_leaflet(contents, image.content_type)
+        result = await leaflet_service.summarize_leaflet(contents, image.content_type, user)
     except leaflet_service.LeafletServiceError as e:
         print(f"[Leaflet Router] Summarization failed: {e}")
         raise HTTPException(

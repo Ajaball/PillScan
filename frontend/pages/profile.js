@@ -47,6 +47,18 @@ const ProfilePage = {
             </div>
           </div>
 
+          <!-- AI Settings -->
+          <div class="card card-interactive animate-fade-in-up settings-item mt-2" id="ai-settings-setting">
+            <div class="flex items-center gap-3">
+              <div class="settings-icon">🤖</div>
+              <div class="flex-1">
+                <p class="font-medium">${i18n.t('ai_settings')}</p>
+                <p class="text-xs text-secondary">${i18n.t('ai_settings_desc')}</p>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+            </div>
+          </div>
+
           <!-- Dark Mode -->
           <div class="card animate-fade-in-up settings-item mt-2">
             <div class="flex items-center gap-3">
@@ -139,6 +151,11 @@ const ProfilePage = {
     // Reminders
     document.getElementById('reminders-setting')?.addEventListener('click', () => {
       router.navigate('/reminders');
+    });
+
+    // AI Settings
+    document.getElementById('ai-settings-setting')?.addEventListener('click', () => {
+      router.navigate('/ai-settings');
     });
 
     // Logout

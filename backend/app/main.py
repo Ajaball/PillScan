@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.config import get_settings
-from app.database import create_tables
+from app.database import create_tables, ensure_new_columns
 from app.routers import auth, users, drugs, scan, medications, reminders, adherence, leaflet
 
 settings = get_settings()
@@ -27,10 +27,12 @@ async def lifespan(app: FastAPI):
     print(f"[START] Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"   Environment: {settings.ENVIRONMENT}")
 
-    # Create database tables (dev mode only — use Alembic in production)
-    if settings.ENVIRONMENT == "development":
-        await create_tables()
-        print("   [SUCCESS] Database tables created/verified")
+    # Create database tables. ``create_all`` is idempotent (it only creates
+    # missing tables), so it is safe to run on every boot. This project ships
+    # no Alembic migrations yet, so we rely on this in production too.
+    await create_tables()
+    await ensure_new_columns()  # add any columns introduced after initial schema
+    print("   [SUCCESS] Database tables created/verified")
 
     # Ensure upload directories exist
     os.makedirs("uploads/scans", exist_ok=True)

@@ -4,6 +4,7 @@ Centralizes all environment-variable-driven settings using pydantic-settings.
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from functools import lru_cache
 from typing import Optional
 
@@ -76,6 +77,24 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        """
+        Managed Postgres providers (Render, Heroku, Railway...) hand out URLs
+        with the sync ``postgres://`` or ``postgresql://`` scheme. This app uses
+        an async engine, which requires the ``postgresql+asyncpg://`` driver, so
+        rewrite the scheme automatically. SQLite and already-async URLs pass
+        through unchanged.
+        """
+        if not isinstance(v, str) or not v:
+            return v
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
 
 @lru_cache()

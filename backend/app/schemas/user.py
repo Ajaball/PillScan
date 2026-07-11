@@ -46,6 +46,20 @@ class ChangeLanguageRequest(BaseModel):
     language: str = Field(..., pattern=r"^(ar|en)$")
 
 
+class AISettingsUpdateRequest(BaseModel):
+    """
+    Update the user's AI (leaflet summarizer) settings.
+
+    All fields are optional so the client can update just one thing:
+    - Send a key string to set/replace it.
+    - Send an empty string ("") to clear a stored key.
+    - Omit a field to leave it unchanged.
+    """
+    gemini_api_key: Optional[str] = Field(None, max_length=512)
+    openai_api_key: Optional[str] = Field(None, max_length=512)
+    llm_provider: Optional[str] = Field(None, pattern=r"^(gemini|openai)$")
+
+
 # ── Response Schemas ─────────────────────────────────────────────────────
 
 class UserResponse(BaseModel):
@@ -73,3 +87,15 @@ class TokenResponse(BaseModel):
 class MessageResponse(BaseModel):
     message: str
     message_ar: Optional[str] = None
+
+
+class AISettingsResponse(BaseModel):
+    """
+    The user's AI settings — never exposes the raw API keys, only whether each
+    provider is configured plus a masked hint of the stored key.
+    """
+    llm_provider: str                       # effective provider ('gemini' | 'openai')
+    gemini_configured: bool                 # True if the user has a Gemini key stored
+    openai_configured: bool                 # True if the user has an OpenAI key stored
+    gemini_key_hint: Optional[str] = None   # e.g. "••••••••abcd"
+    openai_key_hint: Optional[str] = None

@@ -60,6 +60,43 @@ async def create_tables():
         await conn.run_sync(Base.metadata.create_all)
 
 
+# Columns added after the initial schema. ``create_all`` only creates *missing
+# tables*, never new columns on existing ones, so for dev databases that already
+# have a ``users`` table we add these idempotently on startup.
+_ADDED_USER_COLUMNS = {
+    "gemini_api_key": "TEXT",
+    "openai_api_key": "TEXT",
+    "llm_provider": "VARCHAR(10)",
+}
+
+
+async def ensure_new_columns():
+    """
+    Idempotently add newly-introduced columns to existing tables (dev only).
+
+    Uses ``ADD COLUMN IF NOT EXISTS`` on PostgreSQL; on SQLite it checks
+    PRAGMA table_info first. Safe to run on every startup.
+    """
+    from sqlalchemy import text
+
+    is_postgres = settings.DATABASE_URL.startswith("postgresql")
+    async with engine.begin() as conn:
+        if is_postgres:
+            for column, coltype in _ADDED_USER_COLUMNS.items():
+                await conn.execute(
+                    text(f'ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {coltype}')
+                )
+        else:
+            # SQLite has no "IF NOT EXISTS" for columns — introspect first.
+            result = await conn.execute(text("PRAGMA table_info(users)"))
+            existing = {row[1] for row in result.fetchall()}
+            for column, coltype in _ADDED_USER_COLUMNS.items():
+                if column not in existing:
+                    await conn.execute(
+                        text(f"ALTER TABLE users ADD COLUMN {column} {coltype}")
+                    )
+
+
 async def drop_tables():
     """Drop all tables (development/testing only)."""
     async with engine.begin() as conn:

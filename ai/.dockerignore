@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Training-only assets (not needed to serve inference)
+notebooks/
+training/
+data/
+
+# OS
+.DS_Store
+Thumbs.db

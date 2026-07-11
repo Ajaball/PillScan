@@ -185,6 +185,22 @@ class ApiClient {
     return this.delete('/auth/account');
   }
 
+  // ── AI Settings (Leaflet Summarizer API keys) ─────────────────
+
+  /** Get the user's AI settings status (never returns raw keys) */
+  getAISettings() {
+    return this.get('/users/me/ai-settings');
+  }
+
+  /**
+   * Update the user's AI settings.
+   * @param {{gemini_api_key?: string, openai_api_key?: string, llm_provider?: string}} data
+   * Send a key string to set it, "" to clear it, omit to leave unchanged.
+   */
+  updateAISettings(data) {
+    return this.put('/users/me/ai-settings', data);
+  }
+
   // ── Drug Endpoints ────────────────────────────────────────────
 
   searchDrugs(query = '', filters = {}) {

@@ -16,11 +16,13 @@ can still be demonstrated offline without fabricating medical content.
 """
 
 import base64
-from typing import Optional
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import httpx
 
 from app.config import get_settings
+from app.utils.crypto import decrypt_secret
 
 settings = get_settings()
 
@@ -65,9 +67,10 @@ DISCLAIMER_EN = (
 # Returned (as the "summary") when no provider key is configured.
 NOT_CONFIGURED_MESSAGE_AR = (
     "🔑 خدمة التلخيص بالذكاء الاصطناعي غير مُفعّلة بعد.\n\n"
-    "لتشغيلها، أضف مفتاح API في ملف الإعدادات (‎.env‎):\n"
-    "• لِـ Gemini: ‎GEMINI_API_KEY‎\n"
-    "• أو لِـ OpenAI: ‎OPENAI_API_KEY‎ مع ضبط ‎LLM_PROVIDER=openai‎\n\n"
+    "لتشغيلها، افتح: حسابي ← الإعدادات ← إعدادات الذكاء الاصطناعي، "
+    "ثم أضف مفتاح API الخاص بك:\n"
+    "• لِـ Gemini (جوجل)\n"
+    "• أو لِـ OpenAI (شات جي بي تي)\n\n"
     "بعد إضافة المفتاح، أعد تصوير النشرة وسيظهر الملخّص الحقيقي هنا."
 )
 
@@ -79,11 +82,50 @@ def _guess_ext_mime(content_type: Optional[str]) -> str:
     return "image/jpeg"
 
 
-async def _summarize_with_gemini(image_b64: str, mime_type: str) -> str:
+@dataclass
+class LLMConfig:
+    """Effective LLM configuration for one summarization request."""
+    provider: str            # 'gemini' | 'openai'
+    model: str
+    api_key: Optional[str]   # None when nothing is configured
+
+
+def _resolve_config(user: Optional[Any] = None) -> LLMConfig:
+    """
+    Determine which provider + API key to use, preferring the settings the
+    **user** entered in the app over the server-wide ``.env`` defaults.
+
+    Resolution order for the provider:
+        user.llm_provider → settings.LLM_PROVIDER → "gemini"
+
+    For each provider's key: the user's stored (encrypted) key wins; otherwise
+    fall back to the server key from ``.env``.
+    """
+    gemini_key = settings.GEMINI_API_KEY
+    openai_key = settings.OPENAI_API_KEY
+    provider = None
+
+    if user is not None:
+        provider = getattr(user, "llm_provider", None)
+        user_gemini = decrypt_secret(getattr(user, "gemini_api_key", None))
+        user_openai = decrypt_secret(getattr(user, "openai_api_key", None))
+        if user_gemini:
+            gemini_key = user_gemini
+        if user_openai:
+            openai_key = user_openai
+
+    provider = (provider or settings.LLM_PROVIDER or "gemini").lower()
+
+    if provider == "openai":
+        return LLMConfig(provider="openai", model=settings.OPENAI_MODEL, api_key=openai_key)
+    return LLMConfig(provider="gemini", model=settings.GEMINI_MODEL, api_key=gemini_key)
+
+
+async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, model: str) -> str:
     """Call Google Gemini's generateContent endpoint and return the text."""
     url = (
-        f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
-        f"?key={settings.GEMINI_API_KEY}"
+        f"{settings.GEMINI_API_BASE}/models/{model}:generateContent"
+        f"?key={api_key}"
     )
     payload = {
         "contents": [
@@ -118,12 +160,12 @@ async def _summarize_with_gemini(image_b64: str, mime_type: str) -> str:
     return text
 
 
-async def _summarize_with_openai(image_b64: str, mime_type: str) -> str:
+async def _summarize_with_openai(image_b64: str, mime_type: str, api_key: str, model: str) -> str:
     """Call OpenAI's chat completions endpoint (vision) and return the text."""
     url = f"{settings.OPENAI_API_BASE}/chat/completions"
-    headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+    headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": settings.OPENAI_MODEL,
+        "model": model,
         "temperature": 0.2,
         "max_tokens": 1024,
         "messages": [
@@ -159,17 +201,21 @@ async def _summarize_with_openai(image_b64: str, mime_type: str) -> str:
     return text
 
 
-def is_configured() -> bool:
-    """True when the selected provider has an API key set."""
-    provider = (settings.LLM_PROVIDER or "").lower()
-    if provider == "openai":
-        return bool(settings.OPENAI_API_KEY)
-    return bool(settings.GEMINI_API_KEY)
+def is_configured(user: Optional[Any] = None) -> bool:
+    """True when the effective provider (per-user or server default) has a key."""
+    return bool(_resolve_config(user).api_key)
 
 
-async def summarize_leaflet(image_bytes: bytes, content_type: Optional[str]) -> dict:
+async def summarize_leaflet(
+    image_bytes: bytes,
+    content_type: Optional[str],
+    user: Optional[Any] = None,
+) -> dict:
     """
     Summarize a medication leaflet image in Arabic.
+
+    The provider and API key are resolved from the ``user``'s own settings when
+    available, falling back to the server-wide ``.env`` configuration.
 
     Returns a dict:
         {
@@ -183,17 +229,16 @@ async def summarize_leaflet(image_bytes: bytes, content_type: Optional[str]) -> 
 
     Raises LeafletServiceError if a configured provider call fails.
     """
-    provider = (settings.LLM_PROVIDER or "gemini").lower()
-    model = settings.OPENAI_MODEL if provider == "openai" else settings.GEMINI_MODEL
+    config = _resolve_config(user)
 
     base_result = {
-        "provider": provider,
-        "model": model,
+        "provider": config.provider,
+        "model": config.model,
         "disclaimer_ar": DISCLAIMER_AR,
         "disclaimer_en": DISCLAIMER_EN,
     }
 
-    if not is_configured():
+    if not config.api_key:
         return {
             **base_result,
             "summary": NOT_CONFIGURED_MESSAGE_AR,
@@ -203,9 +248,9 @@ async def summarize_leaflet(image_bytes: bytes, content_type: Optional[str]) -> 
     mime_type = _guess_ext_mime(content_type)
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    if provider == "openai":
-        summary = await _summarize_with_openai(image_b64, mime_type)
+    if config.provider == "openai":
+        summary = await _summarize_with_openai(image_b64, mime_type, config.api_key, config.model)
     else:
-        summary = await _summarize_with_gemini(image_b64, mime_type)
+        summary = await _summarize_with_gemini(image_b64, mime_type, config.api_key, config.model)
 
     return {**base_result, "summary": summary, "is_configured": True}

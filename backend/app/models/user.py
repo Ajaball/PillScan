@@ -30,6 +30,15 @@ class User(Base):
     date_of_birth: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     medical_conditions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # ── AI / Leaflet Summarizer settings (user-supplied) ──────────────────
+    # API keys entered by the user in the app settings. Stored **encrypted**
+    # (see app.utils.crypto). llm_provider lets the user choose which service
+    # to use for their leaflet summaries; NULL means "use the server default".
+    gemini_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    openai_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    llm_provider: Mapped[str | None] = mapped_column(String(10), nullable=True)  # 'gemini' | 'openai'
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -224,6 +224,26 @@ const translations = {
     english: 'English',
     scan_history: 'سجل الفحوصات',
 
+    // ── AI Settings ────────────────────────────────────────────────
+    ai_settings: 'إعدادات الذكاء الاصطناعي',
+    ai_settings_desc: 'أضف مفاتيح Gemini و ChatGPT لتلخيص النشرات',
+    ai_settings_intro: 'أضف مفتاح API الخاص بك لتشغيل تلخيص نشرات الأدوية. يُحفظ المفتاح مشفّراً ولا يظهر مرة أخرى.',
+    ai_provider: 'الخدمة المستخدمة',
+    ai_provider_gemini: 'Gemini (جوجل)',
+    ai_provider_openai: 'ChatGPT (OpenAI)',
+    ai_gemini_key: 'مفتاح Gemini API',
+    ai_openai_key: 'مفتاح OpenAI API',
+    ai_key_placeholder: 'الصق المفتاح هنا...',
+    ai_key_configured: 'مُفعّل',
+    ai_key_not_configured: 'غير مُضاف',
+    ai_key_saved_hint: 'مفتاح محفوظ',
+    ai_clear_key: 'حذف المفتاح',
+    ai_get_gemini_key: 'احصل على مفتاح Gemini من Google AI Studio',
+    ai_get_openai_key: 'احصل على مفتاح OpenAI من platform.openai.com',
+    ai_settings_saved: 'تم حفظ الإعدادات',
+    ai_key_cleared: 'تم حذف المفتاح',
+    ai_no_changes: 'لا توجد تغييرات لحفظها',
+
     // ── Offline ────────────────────────────────────────────────────
     offline_title: 'لا يوجد اتصال',
     offline_message: 'يرجى التحقق من اتصالك بالإنترنت',
@@ -453,6 +473,26 @@ const translations = {
     arabic: 'العربية',
     english: 'English',
     scan_history: 'Scan History',
+
+    // ── AI Settings ────────────────────────────────────────────────
+    ai_settings: 'AI Settings',
+    ai_settings_desc: 'Add Gemini & ChatGPT keys for leaflet summaries',
+    ai_settings_intro: 'Add your own API key to enable leaflet summarization. Keys are stored encrypted and never shown again.',
+    ai_provider: 'Provider',
+    ai_provider_gemini: 'Gemini (Google)',
+    ai_provider_openai: 'ChatGPT (OpenAI)',
+    ai_gemini_key: 'Gemini API Key',
+    ai_openai_key: 'OpenAI API Key',
+    ai_key_placeholder: 'Paste your key here...',
+    ai_key_configured: 'Configured',
+    ai_key_not_configured: 'Not set',
+    ai_key_saved_hint: 'Key saved',
+    ai_clear_key: 'Remove key',
+    ai_get_gemini_key: 'Get a Gemini key from Google AI Studio',
+    ai_get_openai_key: 'Get an OpenAI key from platform.openai.com',
+    ai_settings_saved: 'Settings saved',
+    ai_key_cleared: 'Key removed',
+    ai_no_changes: 'No changes to save',
 
     // ── Offline ────────────────────────────────────────────────────
     offline_title: 'No Connection',

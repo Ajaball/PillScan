@@ -17,8 +17,9 @@ COPY . .
 # Create upload directories
 RUN mkdir -p uploads/scans
 
-# Expose port
+# Render provides the port via the $PORT env var (defaults to 8000 locally).
+ENV PORT=8000
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application (production: no --reload, bind to $PORT from the host)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

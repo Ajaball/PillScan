@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local databases (never ship these to the server)
+*.db
+*.sqlite3
+
+# Local secrets
+.env
+*.env.local
+
+# Uploaded user images (ephemeral)
+uploads/
+
+# Tests & tooling
+tests/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db

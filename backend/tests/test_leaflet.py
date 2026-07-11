@@ -69,7 +69,7 @@ class TestLeafletSummarize:
         data = response.json()
         assert data["is_configured"] is False
         assert data["provider"] == "gemini"
-        assert "GEMINI_API_KEY" in data["summary"]
+        assert "Gemini" in data["summary"]  # setup hint points to the AI settings
         assert data["disclaimer_ar"]
         assert data["disclaimer_en"]
 
@@ -83,9 +83,10 @@ class TestLeafletSummarize:
 
         captured = {}
 
-        async def fake_gemini(image_b64, mime_type):
+        async def fake_gemini(image_b64, mime_type, api_key, model):
             captured["b64"] = image_b64
             captured["mime"] = mime_type
+            captured["api_key"] = api_key
             return "• اسم الدواء: بنادول\n• الاستخدام: مسكن للألم وخافض للحرارة"
 
         monkeypatch.setattr(leaflet_service, "_summarize_with_gemini", fake_gemini)
@@ -112,7 +113,7 @@ class TestLeafletSummarize:
         monkeypatch.setattr(leaflet_service.settings, "LLM_PROVIDER", "gemini")
         monkeypatch.setattr(leaflet_service.settings, "GEMINI_API_KEY", "test-key")
 
-        async def boom(image_b64, mime_type):
+        async def boom(image_b64, mime_type, api_key, model):
             raise leaflet_service.LeafletServiceError("upstream failed")
 
         monkeypatch.setattr(leaflet_service, "_summarize_with_gemini", boom)
