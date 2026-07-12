@@ -81,11 +81,24 @@ async def _call_gemini(image_b64: str, mime_type: str) -> str:
     if response.status_code != 200:
         raise PillIdError(f"Gemini API error {response.status_code}: {response.text[:200]}")
     data = response.json()
-    try:
-        parts = data["candidates"][0]["content"]["parts"]
-        return "".join(p.get("text", "") for p in parts).strip()
-    except (KeyError, IndexError, TypeError):
-        raise PillIdError(f"Unexpected Gemini response: {str(data)[:200]}")
+
+    # Input blocked by safety filters (no candidates returned at all).
+    block = (data.get("promptFeedback") or {}).get("blockReason")
+    if block:
+        raise PillIdError(f"Gemini blocked the request (promptFeedback: {block})")
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise PillIdError(f"Gemini returned no candidates: {str(data)[:200]}")
+
+    candidate = candidates[0]
+    parts = (candidate.get("content") or {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if not text:
+        # e.g. finishReason SAFETY / MAX_TOKENS / RECITATION with no usable text.
+        finish = candidate.get("finishReason", "UNKNOWN")
+        raise PillIdError(f"Gemini returned empty text (finishReason: {finish})")
+    return text
 
 
 async def _call_openai(image_b64: str, mime_type: str) -> str:

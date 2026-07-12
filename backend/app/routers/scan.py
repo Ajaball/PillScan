@@ -381,3 +381,71 @@ async def delete_scan(
         message="Scan deleted successfully.",
         message_ar="تم حذف الفحص بنجاح.",
     )
+
+
+@router.get("/llm-diagnostics")
+async def llm_diagnostics(user: User = Depends(get_current_user)):
+    """
+    Diagnose the vision-LLM identification path.
+
+    Reports what the *running* backend actually sees (provider, model, whether
+    an API key is configured) and performs a tiny live text-only call to the
+    provider so a misconfigured key / disabled API / restricted key surfaces as
+    a concrete error instead of a silent "not identified". The API key itself is
+    never returned.
+    """
+    provider = (settings.LLM_PROVIDER or "gemini").lower()
+    model = settings.OPENAI_MODEL if provider == "openai" else settings.GEMINI_MODEL
+    configured = pill_id_service.is_configured()
+
+    result = {
+        "scan_ai_model_enabled": settings.SCAN_AI_MODEL_ENABLED,
+        "scan_llm_fallback_enabled": settings.SCAN_LLM_FALLBACK_ENABLED,
+        "provider": provider,
+        "model": model,
+        "api_key_configured": configured,
+        "live_call_ok": None,
+        "live_call_detail": None,
+    }
+
+    if not configured:
+        result["live_call_detail"] = (
+            "No API key detected for the selected provider. Set "
+            + ("OPENAI_API_KEY" if provider == "openai" else "GEMINI_API_KEY")
+            + " in the backend environment and redeploy."
+        )
+        return result
+
+    # Minimal live ping (text only, no image) to validate the key/model.
+    try:
+        if provider == "openai":
+            url = f"{settings.OPENAI_API_BASE}/chat/completions"
+            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+            payload = {
+                "model": settings.OPENAI_MODEL,
+                "max_tokens": 5,
+                "messages": [{"role": "user", "content": "Reply with the word OK."}],
+            }
+            async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+        else:
+            url = (
+                f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
+                f"?key={settings.GEMINI_API_KEY}"
+            )
+            payload = {"contents": [{"parts": [{"text": "Reply with the word OK."}]}]}
+            async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+                resp = await client.post(url, json=payload)
+
+        if resp.status_code == 200:
+            result["live_call_ok"] = True
+            result["live_call_detail"] = "Provider reachable and key accepted."
+        else:
+            result["live_call_ok"] = False
+            # Provider error bodies do not contain the key; safe to surface.
+            result["live_call_detail"] = f"HTTP {resp.status_code}: {resp.text[:300]}"
+    except Exception as e:  # noqa: BLE001 - report any failure to the caller
+        result["live_call_ok"] = False
+        result["live_call_detail"] = f"{type(e).__name__}: {str(e)[:300]}"
+
+    return result
