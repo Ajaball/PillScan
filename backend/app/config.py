@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     AI_MODEL_PATH: str = "./ai/models"
     AI_CONFIDENCE_THRESHOLD: float = 0.5
 
+    # ── Pill Scan Strategy ───────────────────────────────────────────────
+    # Primary path is the local CV model (YOLOv8 + EfficientNet). When it is
+    # unreachable, disabled, or yields no confident/mappable match, the scan
+    # falls back to the vision LLM identifier. Set SCAN_AI_MODEL_ENABLED=false
+    # to skip the CV model entirely (e.g. while it is being retrained) and go
+    # straight to the LLM.
+    SCAN_AI_MODEL_ENABLED: bool = True
+    SCAN_LLM_FALLBACK_ENABLED: bool = True
+
     # ── Leaflet Summarizer (Vision LLM) ──────────────────────────────────
     # Reads a medication leaflet / prescription image and returns an Arabic
     # summary. Provider is switchable — set the API key for whichever you use.

@@ -13,7 +13,7 @@ const BOX_COLORS = ['#10B981', '#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
 const ScanResultsPage = {
   render() {
     const result = storage.get('last_scan_result');
-    if (!result || !result.predictions) {
+    if (!result || !result.predictions || result.predictions.length === 0) {
       return `
         <div class="page-header">
           <button class="btn btn-icon btn-secondary" id="back-btn">
@@ -78,13 +78,14 @@ const ScanResultsPage = {
 
         <!-- ── Top Match Card ── -->
         ${topMatch ? `
-          <div class="card card-glow animate-fade-in-up result-top-card" id="top-result" data-drug-id="${topMatch.drug_id}"
+          <div class="card card-glow animate-fade-in-up result-top-card" id="top-result" data-drug-id="${topMatch.drug_id || ''}"
                style="border-left: 4px solid ${BOX_COLORS[0]};">
             <div class="result-badge">
               <span class="badge badge-primary" style="background:${BOX_COLORS[0]}22; color:${BOX_COLORS[0]}; border:1px solid ${BOX_COLORS[0]}55;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 ${i18n.t('top_match')}
               </span>
+              ${result.inference_mode === 'llm' ? `<span class="badge" style="margin-inline-start:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.35);">${i18n.t('source_ai')}</span>` : ''}
             </div>
             <div class="result-drug-info mt-3">
               <h2 class="text-xl font-bold">${i18n.lang === 'ar' ? (topMatch.drug_name_ar || topMatch.drug_name_en) : topMatch.drug_name_en}</h2>
@@ -104,10 +105,14 @@ const ScanResultsPage = {
                 <div class="confidence-bar-fill" style="--progress: ${topMatch.confidence * 100}%; background: ${this.getConfidenceGradient(topMatch.confidence)};"></div>
               </div>
             </div>
-            <div class="flex gap-2 mt-4">
-              <button class="btn btn-primary flex-1" id="view-details-btn" data-drug-id="${topMatch.drug_id}">${i18n.t('drug_details')}</button>
-              <button class="btn btn-secondary flex-1" id="add-med-btn" data-drug-id="${topMatch.drug_id}">${i18n.t('add_to_meds')}</button>
-            </div>
+            ${topMatch.drug_id ? `
+              <div class="flex gap-2 mt-4">
+                <button class="btn btn-primary flex-1" id="view-details-btn" data-drug-id="${topMatch.drug_id}">${i18n.t('drug_details')}</button>
+                <button class="btn btn-secondary flex-1" id="add-med-btn" data-drug-id="${topMatch.drug_id}">${i18n.t('add_to_meds')}</button>
+              </div>
+            ` : `
+              <p class="text-xs text-tertiary mt-3">${i18n.t('ai_suggestion_note')}</p>
+            `}
           </div>
         ` : ''}
 
@@ -115,8 +120,8 @@ const ScanResultsPage = {
         ${otherMatches.length > 0 ? `
           <h3 class="font-semibold mt-6 mb-3">${i18n.t('other_matches')}</h3>
           ${otherMatches.map((match, idx) => `
-            <div class="card card-interactive animate-fade-in-up other-result"
-                 data-drug-id="${match.drug_id}"
+            <div class="card ${match.drug_id ? 'card-interactive' : ''} animate-fade-in-up other-result"
+                 data-drug-id="${match.drug_id || ''}"
                  style="animation-delay:${(idx + 1) * 80}ms; border-left: 3px solid ${BOX_COLORS[idx + 1] || BOX_COLORS[4]};">
               <div class="flex items-center gap-3">
                 <div class="result-rank" style="background:${(BOX_COLORS[idx + 1] || BOX_COLORS[4])}22; color:${BOX_COLORS[idx + 1] || BOX_COLORS[4]}; border:1px solid ${(BOX_COLORS[idx + 1] || BOX_COLORS[4])}44;">${match.rank}</div>

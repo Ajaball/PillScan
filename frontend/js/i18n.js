@@ -114,6 +114,8 @@ const translations = {
     add_to_meds: 'إضافة لأدويتي',
     new_scan: 'فحص جديد',
     no_results: 'لم يتم التعرف على الدواء',
+    source_ai: 'ذكاء اصطناعي',
+    ai_suggestion_note: 'اقتراح بالذكاء الاصطناعي — غير مسجّل في قاعدة البيانات. تحقّق من النشرة أو استشر الصيدلي.',
 
     // ── Leaflet Summary ────────────────────────────────────────────
     leaflet_card_title: 'تلخيص نشرة الدواء',
@@ -364,6 +366,8 @@ const translations = {
     add_to_meds: 'Add to My Medications',
     new_scan: 'New Scan',
     no_results: 'Could not identify the pill',
+    source_ai: 'AI',
+    ai_suggestion_note: 'AI suggestion — not in the database. Verify with the leaflet or ask a pharmacist.',
 
     // ── Leaflet Summary ────────────────────────────────────────────
     leaflet_card_title: 'Summarize Leaflet',
