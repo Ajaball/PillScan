@@ -208,6 +208,11 @@ class ApiClient {
     return this.put('/users/me/ai-settings', data);
   }
 
+  /** Live-test the configured Gemini keys (per-key status; keys never returned) */
+  testAIKeys() {
+    return this.get('/scan/llm-diagnostics');
+  }
+
   // ── Drug Endpoints ────────────────────────────────────────────
 
   searchDrugs(query = '', filters = {}) {

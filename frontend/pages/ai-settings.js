@@ -114,6 +114,12 @@ const AISettingsPage = {
         <span id="ai-save-text">${i18n.t('save')}</span>
         <div class="loading-dots hidden" id="ai-save-loading"><span></span><span></span><span></span></div>
       </button>
+
+      <button class="btn btn-secondary btn-block mt-3" id="ai-test-btn">
+        <span id="ai-test-text">${i18n.t('ai_test_keys')}</span>
+        <div class="loading-dots hidden" id="ai-test-loading"><span></span><span></span><span></span></div>
+      </button>
+      <div id="ai-test-result" class="mt-3"></div>
     `;
   },
 
@@ -123,6 +129,57 @@ const AISettingsPage = {
       document.getElementById(`gemini-clear-${slot}`)?.addEventListener('click', () => this.clearKey(slot));
     }
     document.getElementById('ai-save-btn')?.addEventListener('click', () => this.save());
+    document.getElementById('ai-test-btn')?.addEventListener('click', () => this.testKeys());
+  },
+
+  /** Live-test the saved keys and render a per-key status list (mobile-friendly) */
+  async testKeys() {
+    const btn = document.getElementById('ai-test-btn');
+    const text = document.getElementById('ai-test-text');
+    const spinner = document.getElementById('ai-test-loading');
+    const out = document.getElementById('ai-test-result');
+    if (btn) btn.disabled = true;
+    text?.classList.add('hidden');
+    spinner?.classList.remove('hidden');
+    out.innerHTML = '';
+
+    try {
+      const d = await api.testAIKeys();
+      const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      if (!d.keys_configured) {
+        out.innerHTML = `<div class="card" style="border-left:4px solid var(--color-warning);"><p class="text-sm text-secondary">${esc(d.detail || i18n.t('ai_no_changes'))}</p></div>`;
+        return;
+      }
+
+      const rows = (d.keys || []).map((k) => {
+        const ok = k.ok === true;
+        const color = ok ? 'var(--color-success)' : 'var(--color-error)';
+        const label = ok ? i18n.t('ai_key_ok') : i18n.t('ai_key_failed');
+        const hint = k.hint ? ` <span dir="ltr" class="text-tertiary">${esc(k.hint)}</span>` : '';
+        const detail = ok ? '' : `<p class="text-xs text-tertiary mt-1" dir="ltr" style="word-break:break-word;">${esc(k.detail)}</p>`;
+        return `
+          <div class="flex items-start gap-2 py-2" style="border-bottom:1px solid var(--color-border, rgba(255,255,255,0.08));">
+            <span style="color:${color};font-weight:700;">${ok ? '✓' : '✕'}</span>
+            <div class="flex-1">
+              <div class="text-sm">${i18n.t('ai_gemini_key')} ${k.index}${hint} — <span style="color:${color};">${label}</span></div>
+              ${detail}
+            </div>
+          </div>`;
+      }).join('');
+
+      const banner = d.any_key_ok
+        ? `<div class="card mb-2" style="border-left:4px solid var(--color-success);"><p class="text-sm">${i18n.t('ai_test_ok')}</p></div>`
+        : `<div class="card mb-2" style="border-left:4px solid var(--color-error);"><p class="text-sm">${i18n.t('ai_test_fail')}</p></div>`;
+
+      out.innerHTML = `${banner}<div class="card"><p class="text-xs text-tertiary mb-1">${i18n.t('ai_model')}: <span dir="ltr">${esc(d.model)}</span></p>${rows}</div>`;
+    } catch (error) {
+      out.innerHTML = `<div class="card" style="border-left:4px solid var(--color-error);"><p class="text-sm text-secondary" dir="ltr" style="word-break:break-word;">${(error.message || i18n.t('error_generic'))}</p></div>`;
+    } finally {
+      if (btn) btn.disabled = false;
+      text?.classList.remove('hidden');
+      spinner?.classList.add('hidden');
+    }
   },
 
   bindToggle(btnId, inputId) {
