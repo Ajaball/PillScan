@@ -35,22 +35,21 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # ── Pill Identification & Leaflet Summarizer (Vision LLM) ─────────────
-    # Pill scanning and leaflet/prescription summarization both run entirely
-    # on a vision-capable LLM (no local CV model). Provider is switchable —
-    # set the API key for whichever you use.
-    LLM_PROVIDER: str = "gemini"  # gemini | openai
+    # ── Vision LLM (Google Gemini) ───────────────────────────────────────
+    # Powers both pill identification and the Arabic leaflet summary — the
+    # sole identification path (no local CV model). Users add their own keys
+    # in the app; these env keys are an optional server-wide fallback. Up to
+    # five keys are tried in order — when one is exhausted (quota/rate-limit)
+    # or fails, the next is used.
     LLM_TIMEOUT_SECONDS: int = 60
 
-    # Google Gemini
-    GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta"
-
-    # OpenAI (ChatGPT)
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_API_BASE: str = "https://api.openai.com/v1"
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY_2: Optional[str] = None
+    GEMINI_API_KEY_3: Optional[str] = None
+    GEMINI_API_KEY_4: Optional[str] = None
+    GEMINI_API_KEY_5: Optional[str] = None
 
     # ── AWS S3 (Image Storage) ───────────────────────────────────────────
     AWS_ACCESS_KEY_ID: Optional[str] = None

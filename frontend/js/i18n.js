@@ -228,13 +228,10 @@ const translations = {
 
     // ── AI Settings ────────────────────────────────────────────────
     ai_settings: 'إعدادات الذكاء الاصطناعي',
-    ai_settings_desc: 'أضف مفاتيح Gemini و ChatGPT لتلخيص النشرات',
-    ai_settings_intro: 'أضف مفتاح API الخاص بك لتشغيل تلخيص نشرات الأدوية. يُحفظ المفتاح مشفّراً ولا يظهر مرة أخرى.',
-    ai_provider: 'الخدمة المستخدمة',
-    ai_provider_gemini: 'Gemini (جوجل)',
-    ai_provider_openai: 'ChatGPT (OpenAI)',
-    ai_gemini_key: 'مفتاح Gemini API',
-    ai_openai_key: 'مفتاح OpenAI API',
+    ai_settings_desc: 'أضف مفاتيح Gemini للتعرّف على الأدوية وتلخيص النشرات',
+    ai_settings_intro: 'أضف مفاتيح Gemini الخاصة بك لتشغيل التعرّف على الأدوية وتلخيص النشرات. تُحفظ المفاتيح مشفّرة ولا تظهر مرة أخرى.',
+    ai_failover_note: 'يمكنك إضافة حتى 5 مفاتيح Gemini. يجرّبها التطبيق بالترتيب — إذا انتهى رصيد المفتاح الأول أو فشل، ينتقل للمفتاح التالي تلقائيًا.',
+    ai_gemini_key: 'مفتاح Gemini',
     ai_key_placeholder: 'الصق المفتاح هنا...',
     ai_key_configured: 'مُفعّل',
     ai_key_not_configured: 'غير مُضاف',
@@ -245,6 +242,12 @@ const translations = {
     ai_settings_saved: 'تم حفظ الإعدادات',
     ai_key_cleared: 'تم حذف المفتاح',
     ai_no_changes: 'لا توجد تغييرات لحفظها',
+    ai_model: 'الموديل',
+    ai_test_keys: 'اختبار المفاتيح',
+    ai_key_ok: 'يعمل ✓',
+    ai_key_failed: 'فشل',
+    ai_test_ok: 'المفاتيح تعمل ✅ — التعرّف والتلخيص جاهزان.',
+    ai_test_fail: 'كل المفاتيح فشلت. تحقّق من صحة المفتاح، أو أن خدمة Generative Language مفعّلة في Google، أو أن الرصيد لم ينتهِ.',
 
     // ── Offline ────────────────────────────────────────────────────
     offline_title: 'لا يوجد اتصال',
@@ -480,13 +483,10 @@ const translations = {
 
     // ── AI Settings ────────────────────────────────────────────────
     ai_settings: 'AI Settings',
-    ai_settings_desc: 'Add Gemini & ChatGPT keys for leaflet summaries',
-    ai_settings_intro: 'Add your own API key to enable leaflet summarization. Keys are stored encrypted and never shown again.',
-    ai_provider: 'Provider',
-    ai_provider_gemini: 'Gemini (Google)',
-    ai_provider_openai: 'ChatGPT (OpenAI)',
-    ai_gemini_key: 'Gemini API Key',
-    ai_openai_key: 'OpenAI API Key',
+    ai_settings_desc: 'Add Gemini keys for pill ID & leaflet summaries',
+    ai_settings_intro: 'Add your own Gemini keys to enable pill identification and leaflet summaries. Keys are stored encrypted and never shown again.',
+    ai_failover_note: 'You can add up to 5 Gemini keys. The app tries them in order — if the first is exhausted or fails, it moves to the next automatically.',
+    ai_gemini_key: 'Gemini Key',
     ai_key_placeholder: 'Paste your key here...',
     ai_key_configured: 'Configured',
     ai_key_not_configured: 'Not set',
@@ -496,6 +496,12 @@ const translations = {
     ai_get_openai_key: 'Get an OpenAI key from platform.openai.com',
     ai_settings_saved: 'Settings saved',
     ai_key_cleared: 'Key removed',
+    ai_model: 'Model',
+    ai_test_keys: 'Test keys',
+    ai_key_ok: 'Works ✓',
+    ai_key_failed: 'Failed',
+    ai_test_ok: 'Keys work ✅ — identification and summaries are ready.',
+    ai_test_fail: 'All keys failed. Check the key is correct, the Generative Language API is enabled in Google, and the quota is not exhausted.',
     ai_no_changes: 'No changes to save',
 
     // ── Offline ────────────────────────────────────────────────────

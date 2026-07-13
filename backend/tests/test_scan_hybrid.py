@@ -3,8 +3,8 @@ PillScan — LLM Scan Tests
 ==========================
 
 Tests for POST /api/v1/scan/identify: identification via the vision LLM
-(Gemini/OpenAI), and an honest "unidentified" result when the LLM can't
-identify the pill or no provider key is configured.
+(Gemini), and an honest "unidentified" result when the LLM can't identify
+the pill or no key is configured.
 
 Key regression guard: an unidentified scan must NOT fabricate a confident
 "Panadol Extra" match (the old demo-fallback behaviour).
@@ -59,7 +59,8 @@ class TestHybridScan:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """The LLM candidate is mapped to the DB drug."""
-        async def fake_identify(image_bytes, content_type):
+
+        async def fake_identify(image_bytes, content_type, user=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -89,7 +90,8 @@ class TestHybridScan:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """An LLM identification not in the DB is still returned (drug_id null)."""
-        async def fake_identify(image_bytes, content_type):
+
+        async def fake_identify(image_bytes, content_type, user=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -121,7 +123,8 @@ class TestHybridScan:
         Regression: when nothing identifies the pill, the result is an empty
         list with mode 'unidentified' — NOT a fabricated Panadol match.
         """
-        async def fake_identify(image_bytes, content_type):
+
+        async def fake_identify(image_bytes, content_type, user=None):
             return None  # provider not configured
 
         monkeypatch.setattr(pill_id_service, "identify_pill", fake_identify)
@@ -142,7 +145,7 @@ class TestHybridScan:
     ):
         """A provider error during identification yields an honest empty result."""
 
-        async def boom(image_bytes, content_type):
+        async def boom(image_bytes, content_type, user=None):
             raise pill_id_service.PillIdError("provider down")
 
         monkeypatch.setattr(pill_id_service, "identify_pill", boom)

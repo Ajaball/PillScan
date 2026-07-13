@@ -65,6 +65,10 @@ async def create_tables():
 # have a ``users`` table we add these idempotently on startup.
 _ADDED_USER_COLUMNS = {
     "gemini_api_key": "TEXT",
+    "gemini_api_key_2": "TEXT",
+    "gemini_api_key_3": "TEXT",
+    "gemini_api_key_4": "TEXT",
+    "gemini_api_key_5": "TEXT",
     "openai_api_key": "TEXT",
     "llm_provider": "VARCHAR(10)",
 }

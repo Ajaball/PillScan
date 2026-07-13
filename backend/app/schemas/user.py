@@ -6,7 +6,7 @@ Pydantic models for user-related request/response validation.
 from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 from datetime import datetime, date
-from typing import Optional
+from typing import List, Optional
 
 
 # ── Request Schemas ──────────────────────────────────────────────────────
@@ -48,16 +48,18 @@ class ChangeLanguageRequest(BaseModel):
 
 class AISettingsUpdateRequest(BaseModel):
     """
-    Update the user's AI (leaflet summarizer) settings.
+    Update the user's Gemini API keys (up to five, tried in order).
 
-    All fields are optional so the client can update just one thing:
+    All fields are optional so the client can update just one slot:
     - Send a key string to set/replace it.
     - Send an empty string ("") to clear a stored key.
     - Omit a field to leave it unchanged.
     """
     gemini_api_key: Optional[str] = Field(None, max_length=512)
-    openai_api_key: Optional[str] = Field(None, max_length=512)
-    llm_provider: Optional[str] = Field(None, pattern=r"^(gemini|openai)$")
+    gemini_api_key_2: Optional[str] = Field(None, max_length=512)
+    gemini_api_key_3: Optional[str] = Field(None, max_length=512)
+    gemini_api_key_4: Optional[str] = Field(None, max_length=512)
+    gemini_api_key_5: Optional[str] = Field(None, max_length=512)
 
 
 # ── Response Schemas ─────────────────────────────────────────────────────
@@ -89,13 +91,19 @@ class MessageResponse(BaseModel):
     message_ar: Optional[str] = None
 
 
+class GeminiKeyStatus(BaseModel):
+    """Status of one Gemini key slot — never exposes the raw key."""
+    slot: int                               # 1..5
+    configured: bool                        # True if a key is stored in this slot
+    hint: Optional[str] = None              # e.g. "••••••••abcd"
+
+
 class AISettingsResponse(BaseModel):
     """
-    The user's AI settings — never exposes the raw API keys, only whether each
-    provider is configured plus a masked hint of the stored key.
+    The user's Gemini keys — never exposes the raw API keys, only whether each
+    slot is configured plus a masked hint. Keys are tried in slot order with
+    automatic failover.
     """
-    llm_provider: str                       # effective provider ('gemini' | 'openai')
-    gemini_configured: bool                 # True if the user has a Gemini key stored
-    openai_configured: bool                 # True if the user has an OpenAI key stored
-    gemini_key_hint: Optional[str] = None   # e.g. "••••••••abcd"
-    openai_key_hint: Optional[str] = None
+    provider: str = "gemini"
+    keys: List[GeminiKeyStatus]
+    configured_count: int

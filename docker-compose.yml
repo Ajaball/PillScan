@@ -46,10 +46,8 @@ services:
       ENVIRONMENT: development
       DEBUG: "true"
       JWT_SECRET_KEY: docker-dev-secret-key-change-in-production
-      LLM_PROVIDER: gemini
-      # Set your API key here or in a .env file picked up by docker-compose.
+      # Set your Gemini key(s) here or in a .env file picked up by docker-compose.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./backend:/app
       - upload_data:/app/uploads

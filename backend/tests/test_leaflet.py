@@ -56,9 +56,9 @@ class TestLeafletSummarize:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """With no API key set, the endpoint returns a setup hint, not an error."""
-        monkeypatch.setattr(leaflet_service.settings, "LLM_PROVIDER", "gemini")
-        monkeypatch.setattr(leaflet_service.settings, "GEMINI_API_KEY", None)
-        monkeypatch.setattr(leaflet_service.settings, "OPENAI_API_KEY", None)
+        for attr in ("GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3",
+                     "GEMINI_API_KEY_4", "GEMINI_API_KEY_5"):
+            monkeypatch.setattr(leaflet_service.settings, attr, None)
 
         response = await client.post(
             "/api/v1/leaflet/summarize",
@@ -78,7 +78,6 @@ class TestLeafletSummarize:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """A configured Gemini provider returns the model's Arabic summary."""
-        monkeypatch.setattr(leaflet_service.settings, "LLM_PROVIDER", "gemini")
         monkeypatch.setattr(leaflet_service.settings, "GEMINI_API_KEY", "test-key")
 
         captured = {}
@@ -110,7 +109,6 @@ class TestLeafletSummarize:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """A provider failure surfaces as 502, not a 500."""
-        monkeypatch.setattr(leaflet_service.settings, "LLM_PROVIDER", "gemini")
         monkeypatch.setattr(leaflet_service.settings, "GEMINI_API_KEY", "test-key")
 
         async def boom(image_b64, mime_type, api_key, model):
@@ -132,7 +130,6 @@ class TestLeafletServiceUnit:
     @pytest.mark.asyncio
     async def test_gemini_parsing(self, monkeypatch):
         """The Gemini caller extracts text from a well-formed response."""
-        monkeypatch.setattr(leaflet_service.settings, "LLM_PROVIDER", "gemini")
         monkeypatch.setattr(leaflet_service.settings, "GEMINI_API_KEY", "test-key")
 
         class FakeResponse:

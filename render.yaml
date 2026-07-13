@@ -7,8 +7,8 @@
 #   pillscan-api  ->  FastAPI backend  (Docker, ./backend)   uses SQLite
 #   pillscan-web  ->  Frontend PWA     (static, ./frontend)
 #
-# Pill identification and leaflet summarization both run entirely on a
-# vision LLM (Gemini/OpenAI) — there is no local AI inference service to deploy.
+# Pill identification and leaflet summarization both run entirely on Gemini —
+# there is no local AI inference service to deploy.
 #
 # HOW TO DEPLOY:
 #   1. Commit & push this repo to GitHub (make sure render.yaml is included).
@@ -16,8 +16,8 @@
 #   3. Render reads this file and creates both services.
 #   4. After the FIRST deploy, note the REAL URL Render assigns (the name
 #      below may get a random suffix if taken). Then:
-#        - open  pillscan-api  -> Environment -> set GEMINI_API_KEY (or
-#          OPENAI_API_KEY and LLM_PROVIDER=openai)
+#        - open  pillscan-api  -> Environment -> set GEMINI_API_KEY (and
+#          optionally GEMINI_API_KEY_2..5 for failover)
 #        - edit the two rewrite destinations under pillscan-web below to the
 #          real pillscan-api URL, commit, and redeploy.
 #
@@ -50,12 +50,19 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: '["*"]'
-      # ── Pill identification + leaflet/prescription AI summary ──
-      - key: LLM_PROVIDER
-        value: gemini
+      # ── Vision LLM (Google Gemini) — pill ID + leaflet summary ──
+      # Keys can also be entered per-user in the app (AI settings). These env
+      # keys are an optional shared fallback; up to five are tried in order
+      # with automatic failover. Paste your key(s) in the dashboard.
       - key: GEMINI_API_KEY
-        sync: false                   # paste your key in the dashboard
-      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false
+      - key: GEMINI_API_KEY_4
+        sync: false
+      - key: GEMINI_API_KEY_5
         sync: false
 
   # ── Frontend PWA (static site) ────────────────────────────────────────

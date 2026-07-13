@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional
 
+import httpx
 from PIL import Image as PILImage
 from sqlalchemy import or_
 
@@ -48,7 +49,7 @@ async def identify_pill(
     Process:
     1. Validate image file type and size
     2. Save image to storage
-    3. Send to the vision LLM (Gemini/OpenAI) for identification
+    3. Send to the vision LLM (Gemini) for identification
     4. Map predictions to drug database
     5. Store scan in history
     6. Return predictions with drug info
@@ -93,9 +94,9 @@ async def identify_pill(
     mapped_predictions: list[ScanPrediction] = []
     inference_source = "unidentified"
 
-    # ── Vision LLM identification (Gemini / OpenAI) ───────────────────
+    # ── Vision LLM identification (Gemini) ────────────────────────────
     try:
-        llm_result = await pill_id_service.identify_pill(contents, image.content_type)
+        llm_result = await pill_id_service.identify_pill(contents, image.content_type, user=user)
     except pill_id_service.PillIdError as e:
         print(f"[Scan Router] LLM identification failed: {e}")
         llm_result = None
@@ -106,8 +107,8 @@ async def identify_pill(
             mapped_predictions = llm_predictions
             inference_source = "llm"
 
-    # If the LLM didn't identify the pill (or no provider key is configured),
-    # return an honest empty result — no fabricated "demo" match.
+    # If the LLM didn't identify the pill (or no key is configured), return
+    # an honest empty result — no fabricated "demo" match.
 
     inference_time = (time.time() - start_time) * 1000  # Convert to ms
 
@@ -313,3 +314,62 @@ async def delete_scan(
         message="Scan deleted successfully.",
         message_ar="تم حذف الفحص بنجاح.",
     )
+
+
+@router.get("/llm-diagnostics")
+async def llm_diagnostics(user: User = Depends(get_current_user)):
+    """
+    Diagnose the Gemini identification path.
+
+    Reports what the *running* backend actually sees — the model and how many
+    Gemini keys are available (the caller's own keys + server env keys) — and
+    live-pings each key so a bad / restricted / exhausted key surfaces as a
+    concrete error instead of a silent "not identified". API keys are never
+    returned; only a masked hint and per-key status.
+    """
+    from app.services import llm_keys
+    from app.utils.crypto import mask_secret
+
+    keys = llm_keys.resolve_gemini_keys(user)
+
+    result = {
+        "provider": "gemini",
+        "model": settings.GEMINI_MODEL,
+        "keys_configured": len(keys),
+        "user_keys": len(llm_keys.user_gemini_keys(user)),
+        "env_keys": len(llm_keys.env_gemini_keys()),
+        "keys": [],
+    }
+
+    if not keys:
+        result["detail"] = (
+            "No Gemini API key found. Add at least one key on the AI settings "
+            "page in the app (or set GEMINI_API_KEY in the backend environment)."
+        )
+        return result
+
+    # Live-ping each key (text only) so failover behaviour is visible.
+    for index, key in enumerate(keys, start=1):
+        entry = {"index": index, "hint": mask_secret(key), "ok": None, "detail": None}
+        try:
+            url = (
+                f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
+                f"?key={key}"
+            )
+            payload = {"contents": [{"parts": [{"text": "Reply with the word OK."}]}]}
+            async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+                resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                entry["ok"] = True
+                entry["detail"] = "Key accepted."
+            else:
+                entry["ok"] = False
+                # Provider error bodies do not contain the key; safe to surface.
+                entry["detail"] = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:  # noqa: BLE001 - report any failure to the caller
+            entry["ok"] = False
+            entry["detail"] = f"{type(e).__name__}: {str(e)[:200]}"
+        result["keys"].append(entry)
+
+    result["any_key_ok"] = any(k["ok"] for k in result["keys"])
+    return result

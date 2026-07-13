@@ -8,14 +8,14 @@
 
 PillScan is an AI-powered system designed to identify medications through computer vision and provide comprehensive drug management. It is designed to run efficiently locally for demonstrations and academic presentations.
 
-Pill identification runs entirely on a **vision-capable LLM** (Google Gemini or OpenAI/ChatGPT) — the backend sends the photo to the configured provider, which returns structured candidates that are then matched against the drug database.
+Pill identification runs entirely on **Google Gemini** (vision-capable LLM) — the backend sends the photo to Gemini, which returns structured candidates that are then matched against the drug database. Up to five Gemini API keys (per-user + server-wide) can be configured with automatic failover.
 
 ---
 
 ## 📂 Project Structure
 
 This repository contains the following core components allowed for deployment/delivery:
-* **`backend/`** — FastAPI web backend implementing user authentication, SQLite database management, and pill scanning routers (identification via Gemini/OpenAI vision LLM).
+* **`backend/`** — FastAPI web backend implementing user authentication, SQLite database management, and pill scanning routers (identification via Gemini vision LLM).
 * **`frontend/`** — Progressive Web App (PWA) built with HTML5, CSS3, and JavaScript, displaying the client dashboard and visual scanning results.
 * **`ai/`** — Legacy local CV model (YOLOv8 + EfficientNet) training/inference code. No longer used by the running app; kept for reference only.
 
@@ -42,20 +42,19 @@ python -m uvicorn app.main:app --port 8005 --reload
 ### 📷 Pill Scanning & 📄 Leaflet Summarizer (Vision LLM)
 
 Both pill photo identification and leaflet/prescription summarization
-(plain-language **Arabic** summary) run on the same vision-capable LLM.
+(plain-language **Arabic** summary) run on Gemini.
 
 * **Endpoints:** `POST /api/v1/scan/identify`, `POST /api/v1/leaflet/summarize` (multipart image upload)
 * **Screens:** Home → "مسح دواء" / "تلخيص نشرة الدواء" → camera/upload → results page
-* **Provider:** switchable via `LLM_PROVIDER` (`gemini` | `openai`), or per-user via the in-app AI Settings page
+* **Keys:** set server-wide in `backend/.env`, and/or per-user via the in-app AI Settings page (up to 5 keys, tried in order with automatic failover)
 
-Set the key for your provider in `backend/.env`:
+Set at least one key in `backend/.env`:
 
 ```bash
-LLM_PROVIDER=gemini
 GEMINI_API_KEY=your-key-here
-# or, to use ChatGPT:
-# LLM_PROVIDER=openai
-# OPENAI_API_KEY=your-key-here
+# optional additional keys for failover:
+# GEMINI_API_KEY_2=...
+# GEMINI_API_KEY_3=...
 ```
 
 If no key is set, both endpoints still respond with a clear setup message
