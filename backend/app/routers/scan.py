@@ -118,10 +118,10 @@ async def identify_pill(
             mapped_predictions = cv_predictions
             inference_source = "ai_model"
 
-    # ── Stage 2: Vision LLM fallback (Gemini / OpenAI) ───────────────
+    # ── Stage 2: Vision LLM fallback (Gemini) ────────────────────────
     if not mapped_predictions and settings.SCAN_LLM_FALLBACK_ENABLED:
         try:
-            llm_result = await pill_id_service.identify_pill(contents, image.content_type)
+            llm_result = await pill_id_service.identify_pill(contents, image.content_type, user=user)
         except pill_id_service.PillIdError as e:
             print(f"[Scan Router] LLM identification failed: {e}")
             llm_result = None
@@ -386,66 +386,59 @@ async def delete_scan(
 @router.get("/llm-diagnostics")
 async def llm_diagnostics(user: User = Depends(get_current_user)):
     """
-    Diagnose the vision-LLM identification path.
+    Diagnose the Gemini identification path.
 
-    Reports what the *running* backend actually sees (provider, model, whether
-    an API key is configured) and performs a tiny live text-only call to the
-    provider so a misconfigured key / disabled API / restricted key surfaces as
-    a concrete error instead of a silent "not identified". The API key itself is
-    never returned.
+    Reports what the *running* backend actually sees — the model and how many
+    Gemini keys are available (the caller's own keys + server env keys) — and
+    live-pings each key so a bad / restricted / exhausted key surfaces as a
+    concrete error instead of a silent "not identified". API keys are never
+    returned; only a masked hint and per-key status.
     """
-    provider = (settings.LLM_PROVIDER or "gemini").lower()
-    model = settings.OPENAI_MODEL if provider == "openai" else settings.GEMINI_MODEL
-    configured = pill_id_service.is_configured()
+    from app.services import llm_keys
+    from app.utils.crypto import mask_secret
+
+    keys = llm_keys.resolve_gemini_keys(user)
 
     result = {
         "scan_ai_model_enabled": settings.SCAN_AI_MODEL_ENABLED,
         "scan_llm_fallback_enabled": settings.SCAN_LLM_FALLBACK_ENABLED,
-        "provider": provider,
-        "model": model,
-        "api_key_configured": configured,
-        "live_call_ok": None,
-        "live_call_detail": None,
+        "provider": "gemini",
+        "model": settings.GEMINI_MODEL,
+        "keys_configured": len(keys),
+        "user_keys": len(llm_keys.user_gemini_keys(user)),
+        "env_keys": len(llm_keys.env_gemini_keys()),
+        "keys": [],
     }
 
-    if not configured:
-        result["live_call_detail"] = (
-            "No API key detected for the selected provider. Set "
-            + ("OPENAI_API_KEY" if provider == "openai" else "GEMINI_API_KEY")
-            + " in the backend environment and redeploy."
+    if not keys:
+        result["detail"] = (
+            "No Gemini API key found. Add at least one key on the AI settings "
+            "page in the app (or set GEMINI_API_KEY in the backend environment)."
         )
         return result
 
-    # Minimal live ping (text only, no image) to validate the key/model.
-    try:
-        if provider == "openai":
-            url = f"{settings.OPENAI_API_BASE}/chat/completions"
-            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
-            payload = {
-                "model": settings.OPENAI_MODEL,
-                "max_tokens": 5,
-                "messages": [{"role": "user", "content": "Reply with the word OK."}],
-            }
-            async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-                resp = await client.post(url, headers=headers, json=payload)
-        else:
+    # Live-ping each key (text only) so failover behaviour is visible.
+    for index, key in enumerate(keys, start=1):
+        entry = {"index": index, "hint": mask_secret(key), "ok": None, "detail": None}
+        try:
             url = (
                 f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
-                f"?key={settings.GEMINI_API_KEY}"
+                f"?key={key}"
             )
             payload = {"contents": [{"parts": [{"text": "Reply with the word OK."}]}]}
             async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
                 resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                entry["ok"] = True
+                entry["detail"] = "Key accepted."
+            else:
+                entry["ok"] = False
+                # Provider error bodies do not contain the key; safe to surface.
+                entry["detail"] = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:  # noqa: BLE001 - report any failure to the caller
+            entry["ok"] = False
+            entry["detail"] = f"{type(e).__name__}: {str(e)[:200]}"
+        result["keys"].append(entry)
 
-        if resp.status_code == 200:
-            result["live_call_ok"] = True
-            result["live_call_detail"] = "Provider reachable and key accepted."
-        else:
-            result["live_call_ok"] = False
-            # Provider error bodies do not contain the key; safe to surface.
-            result["live_call_detail"] = f"HTTP {resp.status_code}: {resp.text[:300]}"
-    except Exception as e:  # noqa: BLE001 - report any failure to the caller
-        result["live_call_ok"] = False
-        result["live_call_detail"] = f"{type(e).__name__}: {str(e)[:300]}"
-
+    result["any_key_ok"] = any(k["ok"] for k in result["keys"])
     return result

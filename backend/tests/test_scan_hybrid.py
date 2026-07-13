@@ -62,7 +62,7 @@ class TestHybridScan:
         """When CV is off, the LLM candidate is mapped to the DB drug."""
         monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
 
-        async def fake_identify(image_bytes, content_type):
+        async def fake_identify(image_bytes, content_type, user=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -94,7 +94,7 @@ class TestHybridScan:
         """An LLM identification not in the DB is still returned (drug_id null)."""
         monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
 
-        async def fake_identify(image_bytes, content_type):
+        async def fake_identify(image_bytes, content_type, user=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -128,7 +128,7 @@ class TestHybridScan:
         """
         monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
 
-        async def fake_identify(image_bytes, content_type):
+        async def fake_identify(image_bytes, content_type, user=None):
             return None  # provider not configured
 
         monkeypatch.setattr(pill_id_service, "identify_pill", fake_identify)
@@ -150,7 +150,7 @@ class TestHybridScan:
         """A provider error during fallback yields an honest empty result."""
         monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
 
-        async def boom(image_bytes, content_type):
+        async def boom(image_bytes, content_type, user=None):
             raise pill_id_service.PillIdError("provider down")
 
         monkeypatch.setattr(pill_id_service, "identify_pill", boom)

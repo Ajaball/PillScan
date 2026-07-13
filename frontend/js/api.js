@@ -201,7 +201,7 @@ class ApiClient {
 
   /**
    * Update the user's AI settings.
-   * @param {{gemini_api_key?: string, openai_api_key?: string, llm_provider?: string}} data
+   * @param {{gemini_api_key?: string, gemini_api_key_2?: string, gemini_api_key_3?: string, gemini_api_key_4?: string, gemini_api_key_5?: string}} data
    * Send a key string to set it, "" to clear it, omit to leave unchanged.
    */
   updateAISettings(data) {
