@@ -53,12 +53,19 @@ services:
       # after the first deploy (see notes above).
       - key: AI_SERVICE_URL
         value: https://pillscan-ai.onrender.com
-      # ── Leaflet / prescription AI summary ──
-      - key: LLM_PROVIDER
-        value: gemini
+      # ── Vision LLM (Google Gemini) — pill ID + leaflet summary ──
+      # Keys can also be entered per-user in the app (AI settings). These env
+      # keys are an optional shared fallback; up to five are tried in order
+      # with automatic failover. Paste your key(s) in the dashboard.
       - key: GEMINI_API_KEY
-        sync: false                   # paste your key in the dashboard
-      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false
+      - key: GEMINI_API_KEY_4
+        sync: false
+      - key: GEMINI_API_KEY_5
         sync: false
 
   # ── AI Inference Service (Docker) ─────────────────────────────────────
