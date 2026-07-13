@@ -6,9 +6,10 @@ Takes a photo of a medication leaflet / prescription (the paper folded inside
 the medicine box) and returns a plain-language **Arabic** summary produced by a
 vision-capable LLM.
 
-The provider is switchable via `LLM_PROVIDER` (``gemini`` or ``openai``) so the
-team can use whichever key is available. Network calls go through ``httpx`` —
-no extra SDK dependency is required.
+The app is **Gemini-only**. A user can enter up to five Gemini keys on the AI
+settings page; they are tried in order, moving to the next key automatically
+when one is exhausted or fails. Server env keys are a shared fallback. Network
+calls go through ``httpx`` — no extra SDK dependency is required.
 
 If no API key is configured the service returns a clearly-labelled placeholder
 (``is_configured = False``) instead of failing, so the full scan → summary flow
@@ -16,13 +17,12 @@ can still be demonstrated offline without fabricating medical content.
 """
 
 import base64
-from dataclasses import dataclass
 from typing import Any, Optional
 
 import httpx
 
 from app.config import get_settings
-from app.utils.crypto import decrypt_secret
+from app.services import llm_keys
 
 settings = get_settings()
 
@@ -68,9 +68,8 @@ DISCLAIMER_EN = (
 NOT_CONFIGURED_MESSAGE_AR = (
     "🔑 خدمة التلخيص بالذكاء الاصطناعي غير مُفعّلة بعد.\n\n"
     "لتشغيلها، افتح: حسابي ← الإعدادات ← إعدادات الذكاء الاصطناعي، "
-    "ثم أضف مفتاح API الخاص بك:\n"
-    "• لِـ Gemini (جوجل)\n"
-    "• أو لِـ OpenAI (شات جي بي تي)\n\n"
+    "ثم أضف مفتاح Gemini (جوجل) واحد على الأقل. يمكنك إضافة حتى 5 مفاتيح، "
+    "وسيتنقّل التطبيق بينها تلقائيًا إذا انتهى رصيد أحدها.\n\n"
     "بعد إضافة المفتاح، أعد تصوير النشرة وسيظهر الملخّص الحقيقي هنا."
 )
 
@@ -82,55 +81,16 @@ def _guess_ext_mime(content_type: Optional[str]) -> str:
     return "image/jpeg"
 
 
-@dataclass
-class LLMConfig:
-    """Effective LLM configuration for one summarization request."""
-    provider: str            # 'gemini' | 'openai'
-    model: str
-    api_key: Optional[str]   # None when nothing is configured
-
-
-def _resolve_config(user: Optional[Any] = None) -> LLMConfig:
-    """
-    Determine which provider + API key to use, preferring the settings the
-    **user** entered in the app over the server-wide ``.env`` defaults.
-
-    Resolution order for the provider:
-        user.llm_provider → settings.LLM_PROVIDER → "gemini"
-
-    For each provider's key: the user's stored (encrypted) key wins; otherwise
-    fall back to the server key from ``.env``.
-    """
-    gemini_key = settings.GEMINI_API_KEY
-    openai_key = settings.OPENAI_API_KEY
-    provider = None
-
-    if user is not None:
-        provider = getattr(user, "llm_provider", None)
-        user_gemini = decrypt_secret(getattr(user, "gemini_api_key", None))
-        user_openai = decrypt_secret(getattr(user, "openai_api_key", None))
-        if user_gemini:
-            gemini_key = user_gemini
-        if user_openai:
-            openai_key = user_openai
-
-    provider = (provider or settings.LLM_PROVIDER or "gemini").lower()
-
-    if provider == "openai":
-        return LLMConfig(provider="openai", model=settings.OPENAI_MODEL, api_key=openai_key)
-    return LLMConfig(provider="gemini", model=settings.GEMINI_MODEL, api_key=gemini_key)
-
-
 def _gemini_generation_config(model: str, temperature: float) -> dict:
     """
     Build the Gemini generationConfig.
 
     Gemini 2.5 models "think" by default, spending the output token budget on
-    internal reasoning and sometimes returning empty text. Give a generous
-    budget and disable thinking on 2.5 models so the tokens produce the actual
+    internal reasoning and sometimes returning empty text. Give a high budget
+    and disable thinking on 2.5 models so the tokens produce the actual
     summary. (thinkingConfig is only valid on thinking-capable models.)
     """
-    config = {"temperature": temperature, "maxOutputTokens": 2048}
+    config = {"temperature": temperature, "maxOutputTokens": 8192}
     if "2.5" in (model or ""):
         config["thinkingConfig"] = {"thinkingBudget": 0}
     return config
@@ -180,50 +140,9 @@ async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, m
     return text
 
 
-async def _summarize_with_openai(image_b64: str, mime_type: str, api_key: str, model: str) -> str:
-    """Call OpenAI's chat completions endpoint (vision) and return the text."""
-    url = f"{settings.OPENAI_API_BASE}/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    payload = {
-        "model": model,
-        "temperature": 0.2,
-        "max_tokens": 1024,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": SUMMARY_PROMPT_AR},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{image_b64}"},
-                    },
-                ],
-            }
-        ],
-    }
-
-    async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, headers=headers, json=payload)
-
-    if response.status_code != 200:
-        raise LeafletServiceError(
-            f"OpenAI API error {response.status_code}: {response.text[:300]}"
-        )
-
-    data = response.json()
-    try:
-        text = data["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, TypeError):
-        raise LeafletServiceError(f"Unexpected OpenAI response shape: {str(data)[:300]}")
-
-    if not text:
-        raise LeafletServiceError("OpenAI returned an empty summary.")
-    return text
-
-
 def is_configured(user: Optional[Any] = None) -> bool:
-    """True when the effective provider (per-user or server default) has a key."""
-    return bool(_resolve_config(user).api_key)
+    """True when at least one Gemini key (user or server) is available."""
+    return bool(llm_keys.resolve_gemini_keys(user))
 
 
 async def summarize_leaflet(
@@ -232,33 +151,33 @@ async def summarize_leaflet(
     user: Optional[Any] = None,
 ) -> dict:
     """
-    Summarize a medication leaflet image in Arabic.
+    Summarize a medication leaflet image in Arabic using Gemini.
 
-    The provider and API key are resolved from the ``user``'s own settings when
-    available, falling back to the server-wide ``.env`` configuration.
+    Tries the user's Gemini keys (settings page) first, then any server env
+    keys, moving to the next key automatically when one fails or is exhausted.
 
     Returns a dict:
         {
             "summary": str,          # Arabic summary (or a setup message)
-            "provider": str,         # "gemini" | "openai"
+            "provider": "gemini",
             "model": str,            # model id used
             "is_configured": bool,   # False when no API key is set
             "disclaimer_ar": str,
             "disclaimer_en": str,
         }
 
-    Raises LeafletServiceError if a configured provider call fails.
+    Raises LeafletServiceError if every configured key fails.
     """
-    config = _resolve_config(user)
-
+    model = settings.GEMINI_MODEL
     base_result = {
-        "provider": config.provider,
-        "model": config.model,
+        "provider": "gemini",
+        "model": model,
         "disclaimer_ar": DISCLAIMER_AR,
         "disclaimer_en": DISCLAIMER_EN,
     }
 
-    if not config.api_key:
+    keys = llm_keys.resolve_gemini_keys(user)
+    if not keys:
         return {
             **base_result,
             "summary": NOT_CONFIGURED_MESSAGE_AR,
@@ -268,9 +187,13 @@ async def summarize_leaflet(
     mime_type = _guess_ext_mime(content_type)
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    if config.provider == "openai":
-        summary = await _summarize_with_openai(image_b64, mime_type, config.api_key, config.model)
-    else:
-        summary = await _summarize_with_gemini(image_b64, mime_type, config.api_key, config.model)
+    try:
+        summary = await llm_keys.call_with_failover(
+            keys, lambda key: _summarize_with_gemini(image_b64, mime_type, key, model)
+        )
+    except LeafletServiceError:
+        raise
+    except Exception as e:  # noqa: BLE001 - normalise any failover error
+        raise LeafletServiceError(str(e))
 
     return {**base_result, "summary": summary, "is_configured": True}

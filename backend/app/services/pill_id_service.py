@@ -2,8 +2,8 @@
 Pill Identification Service (Vision LLM fallback)
 =================================================
 
-Identifies a medication from a photo using a vision-capable LLM
-(Gemini or OpenAI) and returns structured candidates. Used by the scan
+Identifies a medication from a photo using the Gemini vision model
+and returns structured candidates. Used by the scan
 router as a fallback when the local CV model (YOLOv8 + EfficientNet) is
 unavailable, disabled, or produces no usable/mappable prediction.
 
@@ -20,6 +20,7 @@ from typing import Optional
 import httpx
 
 from app.config import get_settings
+from app.services import llm_keys
 
 settings = get_settings()
 
@@ -52,12 +53,9 @@ IDENTIFY_PROMPT = (
 )
 
 
-def is_configured() -> bool:
-    """True when the selected provider has an API key set."""
-    provider = (settings.LLM_PROVIDER or "").lower()
-    if provider == "openai":
-        return bool(settings.OPENAI_API_KEY)
-    return bool(settings.GEMINI_API_KEY)
+def is_configured(user=None) -> bool:
+    """True when at least one Gemini API key (user or server) is available."""
+    return bool(llm_keys.resolve_gemini_keys(user))
 
 
 def _gemini_generation_config(temperature: float) -> dict:
@@ -66,20 +64,20 @@ def _gemini_generation_config(temperature: float) -> dict:
 
     Gemini 2.5 models enable "thinking" by default, which spends the output
     token budget on internal reasoning and can return empty text. We give a
-    generous token budget and disable thinking on 2.5 models so the tokens go
-    to the actual answer. (thinkingConfig is only valid on thinking-capable
+    high token budget and disable thinking on 2.5 models so the tokens go to
+    the actual answer. (thinkingConfig is only valid on thinking-capable
     models, so it is omitted for 2.0 and earlier.)
     """
-    config = {"temperature": temperature, "maxOutputTokens": 2048}
+    config = {"temperature": temperature, "maxOutputTokens": 8192}
     if "2.5" in (settings.GEMINI_MODEL or ""):
         config["thinkingConfig"] = {"thinkingBudget": 0}
     return config
 
 
-async def _call_gemini(image_b64: str, mime_type: str) -> str:
+async def _call_gemini(image_b64: str, mime_type: str, api_key: str) -> str:
     url = (
         f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
-        f"?key={settings.GEMINI_API_KEY}"
+        f"?key={api_key}"
     )
     payload = {
         "contents": [
@@ -115,37 +113,6 @@ async def _call_gemini(image_b64: str, mime_type: str) -> str:
         finish = candidate.get("finishReason", "UNKNOWN")
         raise PillIdError(f"Gemini returned empty text (finishReason: {finish})")
     return text
-
-
-async def _call_openai(image_b64: str, mime_type: str) -> str:
-    url = f"{settings.OPENAI_API_BASE}/chat/completions"
-    headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
-    payload = {
-        "model": settings.OPENAI_MODEL,
-        "temperature": 0.1,
-        "max_tokens": 1024,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": IDENTIFY_PROMPT},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{image_b64}"},
-                    },
-                ],
-            }
-        ],
-    }
-    async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, headers=headers, json=payload)
-    if response.status_code != 200:
-        raise PillIdError(f"OpenAI API error {response.status_code}: {response.text[:200]}")
-    data = response.json()
-    try:
-        return data["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, TypeError):
-        raise PillIdError(f"Unexpected OpenAI response: {str(data)[:200]}")
 
 
 def _extract_json(text: str) -> dict:
@@ -195,33 +162,43 @@ def _normalize_candidates(parsed: dict) -> list[dict]:
     return candidates
 
 
-async def identify_pill(image_bytes: bytes, content_type: Optional[str]) -> Optional[dict]:
+async def identify_pill(
+    image_bytes: bytes,
+    content_type: Optional[str],
+    user=None,
+) -> Optional[dict]:
     """
-    Identify a medication from an image using the configured vision LLM.
+    Identify a medication from an image using Gemini.
+
+    Tries the user's Gemini keys (settings page) first, then any server env
+    keys, moving to the next key automatically when one fails or is exhausted.
 
     Returns:
-        {"provider": str, "model": str, "candidates": [ {name_en, name_ar,
+        {"provider": "gemini", "model": str, "candidates": [ {name_en, name_ar,
          generic_en, strength, dosage_form, confidence}, ... ]}
-        or None if no provider key is configured.
+        or None if no Gemini key is configured.
 
     Raises:
-        PillIdError on provider failure or unparseable response.
+        PillIdError when every configured key fails or the reply is unparseable.
     """
-    if not is_configured():
+    keys = llm_keys.resolve_gemini_keys(user)
+    if not keys:
         return None
 
-    provider = (settings.LLM_PROVIDER or "gemini").lower()
-    model = settings.OPENAI_MODEL if provider == "openai" else settings.GEMINI_MODEL
-
+    model = settings.GEMINI_MODEL
     mime_type = content_type if (content_type or "").startswith("image/") else "image/jpeg"
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    if provider == "openai":
-        text = await _call_openai(image_b64, mime_type)
-    else:
-        text = await _call_gemini(image_b64, mime_type)
+    try:
+        text = await llm_keys.call_with_failover(
+            keys, lambda key: _call_gemini(image_b64, mime_type, key)
+        )
+    except PillIdError:
+        raise
+    except Exception as e:  # noqa: BLE001 - normalise any failover error
+        raise PillIdError(str(e))
 
     parsed = _extract_json(text)
     candidates = _normalize_candidates(parsed)
 
-    return {"provider": provider, "model": model, "candidates": candidates}
+    return {"provider": "gemini", "model": model, "candidates": candidates}

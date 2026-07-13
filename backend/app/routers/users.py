@@ -15,6 +15,7 @@ from app.schemas.user import (
     MessageResponse,
     AISettingsUpdateRequest,
     AISettingsResponse,
+    GeminiKeyStatus,
 )
 from app.services.auth_service import get_current_user
 from app.config import get_settings
@@ -70,18 +71,24 @@ async def change_language(
 
 # ── AI / Leaflet Summarizer Settings ─────────────────────────────────────
 
+_KEY_SLOTS = 5
+
+
+def _slot_attr(slot: int) -> str:
+    """Model attribute for a Gemini key slot (1-based)."""
+    return "gemini_api_key" if slot == 1 else f"gemini_api_key_{slot}"
+
+
 def _build_ai_settings_response(user: User) -> AISettingsResponse:
-    """Shape the user's AI settings for the client (never exposes raw keys)."""
-    gemini_key = decrypt_secret(user.gemini_api_key)
-    openai_key = decrypt_secret(user.openai_api_key)
-    provider = (user.llm_provider or settings.LLM_PROVIDER or "gemini").lower()
-    return AISettingsResponse(
-        llm_provider=provider,
-        gemini_configured=bool(gemini_key),
-        openai_configured=bool(openai_key),
-        gemini_key_hint=mask_secret(gemini_key),
-        openai_key_hint=mask_secret(openai_key),
-    )
+    """Shape the user's Gemini keys for the client (never exposes raw keys)."""
+    keys = []
+    configured = 0
+    for slot in range(1, _KEY_SLOTS + 1):
+        raw = decrypt_secret(getattr(user, _slot_attr(slot), None))
+        if raw:
+            configured += 1
+        keys.append(GeminiKeyStatus(slot=slot, configured=bool(raw), hint=mask_secret(raw)))
+    return AISettingsResponse(provider="gemini", keys=keys, configured_count=configured)
 
 
 @router.get("/me/ai-settings", response_model=AISettingsResponse)
@@ -109,12 +116,10 @@ async def update_ai_settings(
     """
     update_data = request.model_dump(exclude_unset=True)
 
-    if "gemini_api_key" in update_data:
-        user.gemini_api_key = encrypt_secret((update_data["gemini_api_key"] or "").strip())
-    if "openai_api_key" in update_data:
-        user.openai_api_key = encrypt_secret((update_data["openai_api_key"] or "").strip())
-    if "llm_provider" in update_data and update_data["llm_provider"]:
-        user.llm_provider = update_data["llm_provider"]
+    for slot in range(1, _KEY_SLOTS + 1):
+        attr = _slot_attr(slot)
+        if attr in update_data:
+            setattr(user, attr, encrypt_secret((update_data[attr] or "").strip()))
 
     await db.flush()
     await db.refresh(user)
