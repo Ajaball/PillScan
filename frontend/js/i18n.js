@@ -242,6 +242,12 @@ const translations = {
     ai_settings_saved: 'تم حفظ الإعدادات',
     ai_key_cleared: 'تم حذف المفتاح',
     ai_no_changes: 'لا توجد تغييرات لحفظها',
+    ai_model: 'الموديل',
+    ai_test_keys: 'اختبار المفاتيح',
+    ai_key_ok: 'يعمل ✓',
+    ai_key_failed: 'فشل',
+    ai_test_ok: 'المفاتيح تعمل ✅ — التعرّف والتلخيص جاهزان.',
+    ai_test_fail: 'كل المفاتيح فشلت. تحقّق من صحة المفتاح، أو أن خدمة Generative Language مفعّلة في Google، أو أن الرصيد لم ينتهِ.',
 
     // ── Offline ────────────────────────────────────────────────────
     offline_title: 'لا يوجد اتصال',
@@ -490,6 +496,12 @@ const translations = {
     ai_get_openai_key: 'Get an OpenAI key from platform.openai.com',
     ai_settings_saved: 'Settings saved',
     ai_key_cleared: 'Key removed',
+    ai_model: 'Model',
+    ai_test_keys: 'Test keys',
+    ai_key_ok: 'Works ✓',
+    ai_key_failed: 'Failed',
+    ai_test_ok: 'Keys work ✅ — identification and summaries are ready.',
+    ai_test_fail: 'All keys failed. Check the key is correct, the Generative Language API is enabled in Google, and the quota is not exhausted.',
     ai_no_changes: 'No changes to save',
 
     // ── Offline ────────────────────────────────────────────────────
