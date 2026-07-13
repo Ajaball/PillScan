@@ -1,11 +1,10 @@
 """
-Pill Identification Service (Vision LLM fallback)
-=================================================
+Pill Identification Service (Vision LLM)
+=========================================
 
 Identifies a medication from a photo using a vision-capable LLM
-(Gemini or OpenAI) and returns structured candidates. Used by the scan
-router as a fallback when the local CV model (YOLOv8 + EfficientNet) is
-unavailable, disabled, or produces no usable/mappable prediction.
+(Gemini or OpenAI) and returns structured candidates. This is the sole
+identification path used by the scan router.
 
 The model is asked to reply in strict JSON so results can be mapped to the
 drug database. Returns ``None`` when no provider key is configured (so the

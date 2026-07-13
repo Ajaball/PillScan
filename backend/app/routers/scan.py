@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional
 
-import httpx
 from PIL import Image as PILImage
 from sqlalchemy import or_
 
@@ -23,7 +22,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.drug import Drug
 from app.models.scan_history import ScanHistory
-from app.schemas.medication import BoundingBox, ScanResultResponse, ScanPrediction, ScanHistoryResponse
+from app.schemas.medication import ScanResultResponse, ScanPrediction, ScanHistoryResponse
 from app.schemas.user import MessageResponse
 from app.services.auth_service import get_current_user
 from app.services import pill_id_service
@@ -49,10 +48,10 @@ async def identify_pill(
     Process:
     1. Validate image file type and size
     2. Save image to storage
-    3. Send to AI inference service
+    3. Send to the vision LLM (Gemini/OpenAI) for identification
     4. Map predictions to drug database
     5. Store scan in history
-    6. Return top-5 predictions with drug info
+    6. Return predictions with drug info
     """
     # Validate file type
     if image.content_type not in settings.ALLOWED_IMAGE_TYPES:
@@ -94,46 +93,21 @@ async def identify_pill(
     mapped_predictions: list[ScanPrediction] = []
     inference_source = "unidentified"
 
-    # ── Stage 1: Local CV model (YOLOv8 + EfficientNet) ──────────────
-    if settings.SCAN_AI_MODEL_ENABLED:
-        ai_detections = []  # List of {bbox, classifications}
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    f"{settings.AI_SERVICE_URL}/predict",
-                    files={"image": (image.filename or "image.jpg", contents, image.content_type)}
-                )
-                if response.status_code == 200:
-                    res_data = response.json()
-                    if res_data.get("success"):
-                        data = res_data.get("data", {})
-                        ai_detections = data.get("predictions", [])
-        except Exception as e:
-            print(f"[Scan Router] AI Inference HTTP call failed: {e}")
+    # ── Vision LLM identification (Gemini / OpenAI) ───────────────────
+    try:
+        llm_result = await pill_id_service.identify_pill(contents, image.content_type)
+    except pill_id_service.PillIdError as e:
+        print(f"[Scan Router] LLM identification failed: {e}")
+        llm_result = None
 
-        cv_predictions = await _map_cv_detections(db, ai_detections)
+    if llm_result and llm_result.get("candidates"):
+        llm_predictions = await _map_llm_candidates(db, llm_result["candidates"])
+        if llm_predictions:
+            mapped_predictions = llm_predictions
+            inference_source = "llm"
 
-        # Only trust the CV model when its best match clears the threshold.
-        if cv_predictions and cv_predictions[0].confidence >= settings.AI_CONFIDENCE_THRESHOLD:
-            mapped_predictions = cv_predictions
-            inference_source = "ai_model"
-
-    # ── Stage 2: Vision LLM fallback (Gemini / OpenAI) ───────────────
-    if not mapped_predictions and settings.SCAN_LLM_FALLBACK_ENABLED:
-        try:
-            llm_result = await pill_id_service.identify_pill(contents, image.content_type)
-        except pill_id_service.PillIdError as e:
-            print(f"[Scan Router] LLM identification failed: {e}")
-            llm_result = None
-
-        if llm_result and llm_result.get("candidates"):
-            llm_predictions = await _map_llm_candidates(db, llm_result["candidates"])
-            if llm_predictions:
-                mapped_predictions = llm_predictions
-                inference_source = "llm"
-
-    # If neither path identified the pill, return an honest empty result
-    # (no fabricated "demo" match).
+    # If the LLM didn't identify the pill (or no provider key is configured),
+    # return an honest empty result — no fabricated "demo" match.
 
     inference_time = (time.time() - start_time) * 1000  # Convert to ms
 
@@ -183,48 +157,6 @@ async def _find_drug(db: AsyncSession, term: str) -> Optional[Drug]:
         ).limit(1)
     )
     return result.scalar_one_or_none()
-
-
-async def _map_cv_detections(db: AsyncSession, ai_detections: list) -> list[ScanPrediction]:
-    """Map CV-model detections (bbox + classifications) to database drugs."""
-    mapped: list[ScanPrediction] = []
-    seen_drug_ids = set()  # Prevent duplicate drugs in results
-    rank = 1
-
-    for detection in ai_detections:
-        raw_bbox = detection.get("bbox")  # [x1, y1, x2, y2]
-        classifications = detection.get("classifications", [])
-
-        bbox_obj = None
-        if raw_bbox and len(raw_bbox) == 4:
-            bbox_obj = BoundingBox(
-                x1=raw_bbox[0], y1=raw_bbox[1],
-                x2=raw_bbox[2], y2=raw_bbox[3],
-            )
-
-        top_class = classifications[0] if classifications else None
-        if not top_class:
-            continue
-
-        pred_class = top_class.get("class_name", top_class.get("class", "")).lower()
-        confidence = top_class.get("confidence", 0.0)
-
-        drug = await _find_drug(db, pred_class)
-        if drug and drug.id not in seen_drug_ids:
-            seen_drug_ids.add(drug.id)
-            mapped.append(ScanPrediction(
-                rank=rank,
-                drug_id=drug.id,
-                drug_name_en=drug.name_en,
-                drug_name_ar=drug.name_ar,
-                confidence=confidence,
-                dosage_form=drug.dosage_form,
-                strength=drug.strength,
-                bbox=bbox_obj,
-            ))
-            rank += 1
-
-    return mapped
 
 
 async def _map_llm_candidates(db: AsyncSession, candidates: list) -> list[ScanPrediction]:

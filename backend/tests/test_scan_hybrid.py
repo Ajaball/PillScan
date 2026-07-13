@@ -1,15 +1,15 @@
 """
-PillScan — Hybrid Scan Tests
-=============================
+PillScan — LLM Scan Tests
+==========================
 
-Tests for POST /api/v1/scan/identify covering the hybrid identification
-strategy: CV model first, vision-LLM fallback, and an honest "unidentified"
-result when neither identifies the pill.
+Tests for POST /api/v1/scan/identify: identification via the vision LLM
+(Gemini/OpenAI), and an honest "unidentified" result when the LLM can't
+identify the pill or no provider key is configured.
 
 Key regression guard: an unidentified scan must NOT fabricate a confident
 "Panadol Extra" match (the old demo-fallback behaviour).
 
-The CV model and the LLM provider are mocked — no network or ONNX is used.
+The LLM provider call is mocked — no network is used.
 """
 
 import io
@@ -21,7 +21,6 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from PIL import Image as PILImage
 
-from app.routers import scan as scan_router
 from app.services import pill_id_service
 
 
@@ -33,7 +32,7 @@ def _jpeg_bytes(color=(200, 100, 50)) -> bytes:
 
 
 class TestHybridScan:
-    """Tests for the CV → LLM → honest-empty identification chain."""
+    """Tests for the LLM → honest-empty identification chain."""
 
     @pytest_asyncio.fixture(autouse=True)
     async def seed_drugs(self, db_session: AsyncSession):
@@ -59,9 +58,7 @@ class TestHybridScan:
     async def test_llm_fallback_maps_to_db(
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
-        """When CV is off, the LLM candidate is mapped to the DB drug."""
-        monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
-
+        """The LLM candidate is mapped to the DB drug."""
         async def fake_identify(image_bytes, content_type):
             return {
                 "provider": "gemini", "model": "g",
@@ -92,8 +89,6 @@ class TestHybridScan:
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
         """An LLM identification not in the DB is still returned (drug_id null)."""
-        monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
-
         async def fake_identify(image_bytes, content_type):
             return {
                 "provider": "gemini", "model": "g",
@@ -126,8 +121,6 @@ class TestHybridScan:
         Regression: when nothing identifies the pill, the result is an empty
         list with mode 'unidentified' — NOT a fabricated Panadol match.
         """
-        monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
-
         async def fake_identify(image_bytes, content_type):
             return None  # provider not configured
 
@@ -147,8 +140,7 @@ class TestHybridScan:
     async def test_llm_error_degrades_to_unidentified(
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
-        """A provider error during fallback yields an honest empty result."""
-        monkeypatch.setattr(scan_router.settings, "SCAN_AI_MODEL_ENABLED", False)
+        """A provider error during identification yields an honest empty result."""
 
         async def boom(image_bytes, content_type):
             raise pill_id_service.PillIdError("provider down")

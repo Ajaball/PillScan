@@ -1,22 +1,23 @@
-# PillScan — Render Blueprint (all 3 projects from one repo)
+# PillScan — Render Blueprint (2 projects from one repo)
 # ===========================================================================
 # This single file deploys the whole project on Render and fixes the
 # "open Dockerfile: no such file or directory" error by pointing Render at the
 # Dockerfile *inside each subfolder* (Render looks at the repo root by default).
 #
 #   pillscan-api  ->  FastAPI backend  (Docker, ./backend)   uses SQLite
-#   pillscan-ai   ->  AI inference     (Docker, ./ai)
 #   pillscan-web  ->  Frontend PWA     (static, ./frontend)
+#
+# Pill identification and leaflet summarization both run entirely on a
+# vision LLM (Gemini/OpenAI) — there is no local AI inference service to deploy.
 #
 # HOW TO DEPLOY:
 #   1. Commit & push this repo to GitHub (make sure render.yaml is included).
 #   2. Render dashboard: New +  ->  Blueprint  ->  pick the PillScan repo.
-#   3. Render reads this file and creates all three services.
-#   4. After the FIRST deploy, note the REAL URLs Render assigns (the names
+#   3. Render reads this file and creates both services.
+#   4. After the FIRST deploy, note the REAL URL Render assigns (the name
 #      below may get a random suffix if taken). Then:
-#        - open  pillscan-api  -> Environment -> set GEMINI_API_KEY
-#        - open  pillscan-api  -> Environment -> set AI_SERVICE_URL to the real
-#          pillscan-ai URL (https://pillscan-ai-XXXX.onrender.com)
+#        - open  pillscan-api  -> Environment -> set GEMINI_API_KEY (or
+#          OPENAI_API_KEY and LLM_PROVIDER=openai)
 #        - edit the two rewrite destinations under pillscan-web below to the
 #          real pillscan-api URL, commit, and redeploy.
 #
@@ -49,28 +50,13 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: '["*"]'
-      # Point the backend at the AI service. Update to the REAL pillscan-ai URL
-      # after the first deploy (see notes above).
-      - key: AI_SERVICE_URL
-        value: https://pillscan-ai.onrender.com
-      # ── Leaflet / prescription AI summary ──
+      # ── Pill identification + leaflet/prescription AI summary ──
       - key: LLM_PROVIDER
         value: gemini
       - key: GEMINI_API_KEY
         sync: false                   # paste your key in the dashboard
       - key: OPENAI_API_KEY
         sync: false
-
-  # ── AI Inference Service (Docker) ─────────────────────────────────────
-  - type: web
-    name: pillscan-ai
-    runtime: docker
-    plan: free
-    region: frankfurt
-    dockerfilePath: ./ai/Dockerfile
-    dockerContext: ./ai
-    healthCheckPath: /health
-    autoDeploy: true
 
   # ── Frontend PWA (static site) ────────────────────────────────────────
   - type: web

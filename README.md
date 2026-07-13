@@ -8,47 +8,23 @@
 
 PillScan is an AI-powered system designed to identify medications through computer vision and provide comprehensive drug management. It is designed to run efficiently locally for demonstrations and academic presentations.
 
-The system uses a **two-stage AI pipeline** consisting of:
-1. **YOLOv8** for real-time pill detection and localization.
-2. **EfficientNet-V2-S** for pill classification into specific categories.
+Pill identification runs entirely on a **vision-capable LLM** (Google Gemini or OpenAI/ChatGPT) — the backend sends the photo to the configured provider, which returns structured candidates that are then matched against the drug database.
 
 ---
 
 ## 📂 Project Structure
 
 This repository contains the following core components allowed for deployment/delivery:
-* **`backend/`** — FastAPI web backend implementing user authentication, SQLite database management, and pill scanning routers.
+* **`backend/`** — FastAPI web backend implementing user authentication, SQLite database management, and pill scanning routers (identification via Gemini/OpenAI vision LLM).
 * **`frontend/`** — Progressive Web App (PWA) built with HTML5, CSS3, and JavaScript, displaying the client dashboard and visual scanning results.
-* **`ai/`** — Python microservice hosting model loading via ONNX Runtime and training scripts.
-
----
-
-## 📊 Dataset Reference
-
-The AI models were trained on the **Visual Pill Identification** dataset:
-* **Dataset Source:** Roboflow Universe
-* **Link:** [Visual Pill Identification Dataset on Roboflow](https://universe.roboflow.com/medgen/visual-pill-identification)
-* **Classes:** Includes `antihistamine` (Claritine), `ibuprofen` (Brufen), and `paracetamol` (Panadol Extra).
+* **`ai/`** — Legacy local CV model (YOLOv8 + EfficientNet) training/inference code. No longer used by the running app; kept for reference only.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. AI Inference Microservice (`ai`)
-The AI service loads the trained ONNX models and exposes a prediction endpoint.
-
-```bash
-cd ai
-python -m venv .venv
-# Activate virtual environment
-# Windows: .\.venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
-python -m uvicorn inference.server:app --port 8001
-```
-
-### 2. Web Backend Server (`backend`)
-The backend provides APIs for authentication, search, and maps the predicted AI classes to rich Saudi SFDA-registered drug objects.
+### 1. Web Backend Server (`backend`)
+The backend provides APIs for authentication, search, and maps the vision-LLM's identification to rich Saudi SFDA-registered drug objects.
 
 ```bash
 cd backend
@@ -63,14 +39,14 @@ python -m app.seed
 python -m uvicorn app.main:app --port 8005 --reload
 ```
 
-### 📄 Leaflet Summarizer (Arabic AI Summary)
+### 📷 Pill Scanning & 📄 Leaflet Summarizer (Vision LLM)
 
-The app can scan the leaflet/prescription paper found inside a medicine box and
-return a plain-language **Arabic** summary using a vision-capable LLM.
+Both pill photo identification and leaflet/prescription summarization
+(plain-language **Arabic** summary) run on the same vision-capable LLM.
 
-* **Endpoint:** `POST /api/v1/leaflet/summarize` (multipart image upload)
-* **Screens:** Home → "تلخيص نشرة الدواء" → camera/upload → summary page
-* **Provider:** switchable via `LLM_PROVIDER` (`gemini` | `openai`)
+* **Endpoints:** `POST /api/v1/scan/identify`, `POST /api/v1/leaflet/summarize` (multipart image upload)
+* **Screens:** Home → "مسح دواء" / "تلخيص نشرة الدواء" → camera/upload → results page
+* **Provider:** switchable via `LLM_PROVIDER` (`gemini` | `openai`), or per-user via the in-app AI Settings page
 
 Set the key for your provider in `backend/.env`:
 
@@ -82,11 +58,11 @@ GEMINI_API_KEY=your-key-here
 # OPENAI_API_KEY=your-key-here
 ```
 
-If no key is set, the endpoint still responds with a clear setup message
+If no key is set, both endpoints still respond with a clear setup message
 (so the full flow can be demonstrated) instead of failing.
 
-### 3. Web Client (`frontend`)
-To view the user dashboard and test image uploads with real-time bounding box canvas overlay:
+### 2. Web Client (`frontend`)
+To view the user dashboard and test image uploads:
 
 ```bash
 cd frontend
