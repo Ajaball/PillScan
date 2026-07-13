@@ -60,6 +60,22 @@ def is_configured() -> bool:
     return bool(settings.GEMINI_API_KEY)
 
 
+def _gemini_generation_config(temperature: float) -> dict:
+    """
+    Build the Gemini generationConfig.
+
+    Gemini 2.5 models enable "thinking" by default, which spends the output
+    token budget on internal reasoning and can return empty text. We give a
+    generous token budget and disable thinking on 2.5 models so the tokens go
+    to the actual answer. (thinkingConfig is only valid on thinking-capable
+    models, so it is omitted for 2.0 and earlier.)
+    """
+    config = {"temperature": temperature, "maxOutputTokens": 2048}
+    if "2.5" in (settings.GEMINI_MODEL or ""):
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    return config
+
+
 async def _call_gemini(image_b64: str, mime_type: str) -> str:
     url = (
         f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
@@ -74,7 +90,7 @@ async def _call_gemini(image_b64: str, mime_type: str) -> str:
                 ]
             }
         ],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024},
+        "generationConfig": _gemini_generation_config(temperature=0.1),
     }
     async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
         response = await client.post(url, json=payload)

@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
     # Google Gemini
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta"
 
     # OpenAI (ChatGPT)
