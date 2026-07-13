@@ -12,6 +12,7 @@ This module centralises: which key slots exist, how to resolve the ordered key
 list for a request, and a generic "try each key until one works" helper.
 """
 
+import re
 from typing import Any, Awaitable, Callable, List, Optional, TypeVar
 
 from app.config import get_settings
@@ -96,3 +97,12 @@ async def call_with_failover(
 
     assert last_error is not None
     raise last_error
+
+
+def is_thinking_capable(model: str) -> bool:
+    """Gemini 2.5+ models enable "thinking" by default; 2.0 and earlier don't support it."""
+    match = re.match(r"gemini-(\d+)\.(\d+)", model or "")
+    if not match:
+        return False
+    major, minor = int(match.group(1)), int(match.group(2))
+    return (major, minor) >= (2, 5)

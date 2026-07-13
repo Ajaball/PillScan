@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # or fails, the next is used.
     LLM_TIMEOUT_SECONDS: int = 60
 
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
     GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta"
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_API_KEY_2: Optional[str] = None

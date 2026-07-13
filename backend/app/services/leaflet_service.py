@@ -85,13 +85,13 @@ def _gemini_generation_config(model: str, temperature: float) -> dict:
     """
     Build the Gemini generationConfig.
 
-    Gemini 2.5 models "think" by default, spending the output token budget on
-    internal reasoning and sometimes returning empty text. Give a high budget
-    and disable thinking on 2.5 models so the tokens produce the actual
+    Thinking-capable models "think" by default, spending the output token
+    budget on internal reasoning and sometimes returning empty text. Give a
+    high budget and disable thinking so the tokens produce the actual
     summary. (thinkingConfig is only valid on thinking-capable models.)
     """
     config = {"temperature": temperature, "maxOutputTokens": 8192}
-    if "2.5" in (model or ""):
+    if llm_keys.is_thinking_capable(model):
         config["thinkingConfig"] = {"thinkingBudget": 0}
     return config
 
