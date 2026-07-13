@@ -43,7 +43,7 @@ echo.
 echo Starting all services...
 echo.
 
-:: 1. Start FastAPI Web Backend on Port 8005 (identification via Gemini/OpenAI vision LLM)
+:: 1. Start FastAPI Web Backend on Port 8005 (identification via Gemini vision LLM)
 echo Launching PillScan FastAPI Backend (Port 8005)...
 start "PillScan Backend API" cmd /k "cd backend && .venv\Scripts\activate.bat && python -m app.seed && python -m uvicorn app.main:app --port 8005"
 
