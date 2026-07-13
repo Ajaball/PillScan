@@ -121,6 +121,21 @@ def _resolve_config(user: Optional[Any] = None) -> LLMConfig:
     return LLMConfig(provider="gemini", model=settings.GEMINI_MODEL, api_key=gemini_key)
 
 
+def _gemini_generation_config(model: str, temperature: float) -> dict:
+    """
+    Build the Gemini generationConfig.
+
+    Gemini 2.5 models "think" by default, spending the output token budget on
+    internal reasoning and sometimes returning empty text. Give a generous
+    budget and disable thinking on 2.5 models so the tokens produce the actual
+    summary. (thinkingConfig is only valid on thinking-capable models.)
+    """
+    config = {"temperature": temperature, "maxOutputTokens": 2048}
+    if "2.5" in (model or ""):
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    return config
+
+
 async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, model: str) -> str:
     """Call Google Gemini's generateContent endpoint and return the text."""
     url = (
@@ -136,7 +151,7 @@ async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, m
                 ]
             }
         ],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+        "generationConfig": _gemini_generation_config(model, temperature=0.2),
     }
 
     async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
@@ -148,15 +163,20 @@ async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, m
         )
 
     data = response.json()
-    try:
-        candidates = data["candidates"]
-        parts = candidates[0]["content"]["parts"]
-        text = "".join(part.get("text", "") for part in parts).strip()
-    except (KeyError, IndexError, TypeError):
-        raise LeafletServiceError(f"Unexpected Gemini response shape: {str(data)[:300]}")
 
+    block = (data.get("promptFeedback") or {}).get("blockReason")
+    if block:
+        raise LeafletServiceError(f"Gemini blocked the request (promptFeedback: {block})")
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise LeafletServiceError(f"Gemini returned no candidates: {str(data)[:300]}")
+
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    text = "".join(part.get("text", "") for part in parts).strip()
     if not text:
-        raise LeafletServiceError("Gemini returned an empty summary.")
+        finish = candidates[0].get("finishReason", "UNKNOWN")
+        raise LeafletServiceError(f"Gemini returned an empty summary (finishReason: {finish})")
     return text
 
 
