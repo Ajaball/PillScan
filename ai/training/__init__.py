@@ -1,1 +1,0 @@
-"""PillScan AI Training Package."""

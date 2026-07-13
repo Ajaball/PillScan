@@ -35,9 +35,7 @@ test_pillscan.db
 # Uploads (user images)
 uploads/
 
-# AI Models (Allow models inside the ai project)
-ai/data/raw/
-ai/data/augmented/
+# AI training artifacts (local CV model removed from the project)
 dataset/
 runs/
 wandb/
@@ -50,14 +48,14 @@ desktop.ini
 # Docker
 .docker/
 
-# Exclude Mobile App entirely (as requested: "only keep backend, frontend, and ai")
+# Exclude Mobile App entirely (as requested: "only keep backend and frontend")
 mobile/
 
 # Exclude Document folders and helper scripts
 docs/
 scripts/
 graphify-out/
-# Exclude root duplicates of models, but allow them inside the ai folder
+# Exclude stray model weight files (local CV model removed from the project)
 /best.onnx
 /pill_classifier.onnx
 /pill_classifier.onnx.data

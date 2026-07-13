@@ -17,7 +17,6 @@ Pill identification runs entirely on **Google Gemini** (vision-capable LLM) — 
 This repository contains the following core components allowed for deployment/delivery:
 * **`backend/`** — FastAPI web backend implementing user authentication, SQLite database management, and pill scanning routers (identification via Gemini vision LLM).
 * **`frontend/`** — Progressive Web App (PWA) built with HTML5, CSS3, and JavaScript, displaying the client dashboard and visual scanning results.
-* **`ai/`** — Legacy local CV model (YOLOv8 + EfficientNet) training/inference code. No longer used by the running app; kept for reference only.
 
 ---
 
