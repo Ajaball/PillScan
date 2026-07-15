@@ -166,6 +166,7 @@ async def identify_pill(
     image_bytes: bytes,
     content_type: Optional[str],
     user=None,
+    db=None,
 ) -> Optional[dict]:
     """
     Identify a medication from an image using Gemini.
@@ -181,7 +182,7 @@ async def identify_pill(
     Raises:
         PillIdError when every configured key fails or the reply is unparseable.
     """
-    keys = llm_keys.resolve_gemini_keys(user)
+    keys = await llm_keys.resolve_gemini_keys_async(user, db)
     if not keys:
         return None
 

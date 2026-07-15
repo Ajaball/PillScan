@@ -5,7 +5,9 @@ AI-generated Arabic summary produced by a vision-capable LLM.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.models.user import User
 from app.schemas.leaflet import LeafletSummaryResponse
 from app.services.auth_service import get_current_user
@@ -20,6 +22,7 @@ router = APIRouter(prefix="/leaflet", tags=["Leaflet"])
 async def summarize_leaflet(
     image: UploadFile = File(..., description="Medication leaflet / prescription photo"),
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Upload a photo of a medication leaflet (the paper inside the box) or a
@@ -56,7 +59,7 @@ async def summarize_leaflet(
     # Pass the user so their own API key / provider (set in app settings) is
     # preferred over the server-wide .env defaults.
     try:
-        result = await leaflet_service.summarize_leaflet(contents, image.content_type, user)
+        result = await leaflet_service.summarize_leaflet(contents, image.content_type, user, db)
     except leaflet_service.LeafletServiceError as e:
         print(f"[Leaflet Router] Summarization failed: {e}")
         raise HTTPException(

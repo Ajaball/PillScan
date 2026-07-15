@@ -169,14 +169,15 @@ def _normalize(parsed: dict, drug_name: str, model: str) -> dict:
     }
 
 
-async def get_drug_info(drug_name: str, user: Optional[Any] = None) -> dict:
+async def get_drug_info(drug_name: str, user: Optional[Any] = None, db: Any = None) -> dict:
     """
     Look up general drug information for ``drug_name`` via Gemini.
 
-    Returns a dict matching ``DrugInfoResponse``. Never raises for the "not
-    configured" or "unparseable" cases — it returns recognized=False with a
-    clear message instead. Raises ``AssistantServiceError`` only if every
-    configured key errored at the network/API level.
+    Uses the requesting user's own keys, then admin-shared keys (when ``db`` is
+    provided), then server env keys. Returns a dict matching ``DrugInfoResponse``.
+    Never raises for the "not configured" or "unparseable" cases — it returns
+    recognized=False with a clear message instead. Raises
+    ``AssistantServiceError`` only if every configured key errored.
     """
     model = settings.GEMINI_MODEL
     base = {
@@ -194,7 +195,7 @@ async def get_drug_info(drug_name: str, user: Optional[Any] = None) -> dict:
         "disclaimer_ar": DISCLAIMER_AR,
     }
 
-    keys = llm_keys.resolve_gemini_keys(user)
+    keys = await llm_keys.resolve_gemini_keys_async(user, db)
     if not keys:
         return {**base, "is_configured": False, "warnings": [NOT_CONFIGURED_MESSAGE_AR]}
 
