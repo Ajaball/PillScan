@@ -26,6 +26,9 @@ const AdminPage = {
         <div style="width:48px;"></div>
       </div>
       <div class="page-content">
+        <!-- Storage status -->
+        <div id="db-status" class="mb-4"></div>
+
         <!-- Pending requests -->
         <div class="section">
           <div class="flex items-center justify-between mb-3">
@@ -54,7 +57,26 @@ const AdminPage = {
   },
 
   async reload() {
-    await Promise.all([this.loadPending(), this.loadAllUsers()]);
+    await Promise.all([this.loadDbStatus(), this.loadPending(), this.loadAllUsers()]);
+  },
+
+  async loadDbStatus() {
+    const container = document.getElementById('db-status');
+    if (!container) return;
+    try {
+      const s = await api.getDbStatus();
+      const ok = s.persistent === true;
+      const color = ok ? 'var(--color-success)' : 'var(--color-warning)';
+      const msg = ok ? i18n.t('db_persistent') : i18n.t('db_ephemeral');
+      const host = s.host ? ` <span dir="ltr" class="text-tertiary">(${s.host})</span>` : '';
+      container.innerHTML = `
+        <div class="card" style="border-inline-start:4px solid ${color};">
+          <p class="text-xs font-semibold mb-1">${i18n.t('db_status_title')}</p>
+          <p class="text-xs text-secondary" style="line-height:1.6;">${msg}${host}</p>
+        </div>`;
+    } catch {
+      container.innerHTML = '';
+    }
   },
 
   fmtDate(iso) {

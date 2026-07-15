@@ -102,6 +102,23 @@ class TestAdminAccessControl:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    @pytest.mark.asyncio
+    async def test_db_status_admin_only(self, client: AsyncClient, test_user: dict):
+        response = await client.get(
+            "/api/v1/admin/db-status", headers=test_user["auth_header"],
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_db_status_reports_engine(self, client: AsyncClient, admin_user: dict):
+        response = await client.get(
+            "/api/v1/admin/db-status", headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["engine"] in ("sqlite", "postgres")
+        assert "persistent" in data
+
 
 class TestAssistantGuard:
     @pytest.mark.asyncio
