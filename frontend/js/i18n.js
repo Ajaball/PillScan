@@ -241,6 +241,7 @@ const translations = {
     ai_get_openai_key: 'احصل على مفتاح OpenAI من platform.openai.com',
     ai_settings_saved: 'تم حفظ الإعدادات',
     ai_key_cleared: 'تم حذف المفتاح',
+    ai_key_keep_hint: 'اترك الحقل فارغًا للإبقاء على المفتاح المحفوظ. لن يُحذف إلا بالضغط على «حذف المفتاح».',
     ai_no_changes: 'لا توجد تغييرات لحفظها',
     ai_model: 'الموديل',
 
@@ -536,6 +537,7 @@ const translations = {
     ai_get_openai_key: 'Get an OpenAI key from platform.openai.com',
     ai_settings_saved: 'Settings saved',
     ai_key_cleared: 'Key removed',
+    ai_key_keep_hint: 'Leave the field empty to keep the saved key. It is only removed by pressing "Remove key".',
     ai_model: 'Model',
     ai_test_keys: 'Test keys',
     ai_key_ok: 'Works ✓',

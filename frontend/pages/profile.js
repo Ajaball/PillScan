@@ -44,6 +44,7 @@ const ProfilePage = {
                 <p class="font-medium">${i18n.t('admin_panel')}</p>
                 <p class="text-xs text-secondary">${i18n.t('admin_panel_desc')}</p>
               </div>
+              <span class="badge badge-error hidden" id="admin-pending-badge" style="margin-inline-end:6px;">0</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
             </div>
           </div>` : ''}
@@ -171,10 +172,20 @@ const ProfilePage = {
       router.navigate('/ai-settings');
     });
 
-    // Admin panel (admins only)
+    // Admin panel (admins only) + live pending-request count badge
     document.getElementById('admin-panel-setting')?.addEventListener('click', () => {
       router.navigate('/admin');
     });
+    if (storage.isAdmin()) {
+      api.getUsers('PENDING').then(list => {
+        const n = (list || []).length;
+        const badge = document.getElementById('admin-pending-badge');
+        if (badge && n > 0) {
+          badge.textContent = n > 99 ? '99+' : String(n);
+          badge.classList.remove('hidden');
+        }
+      }).catch(() => {});
+    }
 
     // Logout
     document.getElementById('logout-btn')?.addEventListener('click', () => {
