@@ -14,6 +14,7 @@ from app.schemas.user import (
     UserRegisterRequest,
     UserLoginRequest,
     UserResponse,
+    RegisterResponse,
     TokenResponse,
     MessageResponse,
     PasswordResetRequest,
@@ -33,16 +34,17 @@ settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: UserRegisterRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Register a new user account.
-    - Validates email uniqueness
+    - Requires a unique email AND a unique phone number
     - Hashes password with bcrypt
-    - Returns created user profile
+    - Creates the account as role=USER / status=PENDING — it cannot log in until
+      an admin approves it. Returns a confirmation message (not a token).
     """
     # Check if email already exists
     existing = await db.execute(select(User).where(User.email == request.email))
@@ -52,16 +54,15 @@ async def register(
             detail="An account with this email already exists",
         )
 
-    # Check phone uniqueness if provided
-    if request.phone:
-        existing_phone = await db.execute(select(User).where(User.phone == request.phone))
-        if existing_phone.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="An account with this phone number already exists",
-            )
+    # Check phone uniqueness (phone is required at sign-up)
+    existing_phone = await db.execute(select(User).where(User.phone == request.phone))
+    if existing_phone.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this phone number already exists",
+        )
 
-    # Create new user
+    # Create new user — role/status use the model defaults (USER / PENDING).
     user = User(
         email=request.email,
         password_hash=hash_password(request.password),
@@ -73,7 +74,13 @@ async def register(
     await db.flush()
     await db.refresh(user)
 
-    return user
+    return RegisterResponse(
+        id=user.id,
+        email=user.email,
+        status=user.status,
+        message="Your request has been received and is awaiting admin approval.",
+        message_ar="تم استلام طلبك، بانتظار موافقة المدير.",
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -129,6 +136,18 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account has been deactivated",
+        )
+
+    # Approval gate — only APPROVED accounts may sign in.
+    if user.status == "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="حسابك قيد المراجعة، انتظر موافقة المدير",
+        )
+    if user.status == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="تم رفض طلب حسابك",
         )
 
     # Update last login

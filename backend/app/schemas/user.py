@@ -15,7 +15,8 @@ class UserRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=2, max_length=255)
-    phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{8,15}$")
+    # Phone is required at sign-up (and unique) alongside the email.
+    phone: str = Field(..., pattern=r"^\+?[0-9]{8,15}$")
     language: str = Field(default="ar", pattern=r"^(ar|en)$")
 
 
@@ -70,13 +71,43 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     full_name: str
     language: str
+    role: str = "USER"
+    status: str = "PENDING"
     date_of_birth: Optional[date] = None
     medical_conditions: Optional[dict] = None
     profile_image_url: Optional[str] = None
     is_active: bool
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class RegisterResponse(BaseModel):
+    """Returned after sign-up — the account is created PENDING admin approval."""
+    id: UUID
+    email: str
+    status: str
+    message: str
+    message_ar: str
+
+
+class AdminUserResponse(BaseModel):
+    """User row for the admin dashboard (no secrets exposed)."""
+    id: UUID
+    email: str
+    phone: Optional[str] = None
+    full_name: str
+    role: str
+    status: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UpdateUserStatusRequest(BaseModel):
+    status: str = Field(..., pattern=r"^(PENDING|APPROVED|REJECTED)$")
 
 
 class TokenResponse(BaseModel):

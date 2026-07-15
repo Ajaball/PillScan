@@ -71,6 +71,12 @@ _ADDED_USER_COLUMNS = {
     "gemini_api_key_5": "TEXT",
     "openai_api_key": "TEXT",
     "llm_provider": "VARCHAR(10)",
+    # Role & approval workflow. The column DEFAULT back-fills *existing* rows so
+    # no data is lost and current users stay usable: everyone already in the
+    # database becomes an APPROVED regular USER. New sign-ups get role=USER /
+    # status=PENDING from the SQLAlchemy model default at INSERT time instead.
+    "role": "VARCHAR(10) DEFAULT 'USER'",
+    "status": "VARCHAR(10) DEFAULT 'APPROVED'",
 }
 
 

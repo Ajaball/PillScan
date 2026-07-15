@@ -19,18 +19,36 @@ class TestRegistration:
 
     @pytest.mark.asyncio
     async def test_register_success(self, client: AsyncClient):
-        """A valid registration should return 201 with user data."""
+        """A valid registration should return 201 and create a PENDING account."""
         response = await client.post("/api/v1/auth/register", json={
             "email": "newuser@pillscan.sa",
             "password": "Secure@123",
             "full_name": "أحمد بن عبدالله",
+            "phone": "+966501112233",
             "language": "ar",
         })
         assert response.status_code in (200, 201)
         data = response.json()
         assert data["email"] == "newuser@pillscan.sa"
+        assert data["status"] == "PENDING"  # Awaiting admin approval
         assert "password" not in data  # Password must never be returned
         assert "password_hash" not in data
+
+    @pytest.mark.asyncio
+    async def test_register_pending_cannot_login(self, client: AsyncClient):
+        """A freshly registered (PENDING) account must not be able to log in."""
+        await client.post("/api/v1/auth/register", json={
+            "email": "pending@pillscan.sa",
+            "password": "Secure@123",
+            "full_name": "مستخدم معلق",
+            "phone": "+966501119999",
+            "language": "ar",
+        })
+        response = await client.post("/api/v1/auth/login", json={
+            "email": "pending@pillscan.sa",
+            "password": "Secure@123",
+        })
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(self, client: AsyncClient):
@@ -39,12 +57,14 @@ class TestRegistration:
             "email": "duplicate@pillscan.sa",
             "password": "Secure@123",
             "full_name": "مستخدم أول",
+            "phone": "+966502223344",
             "language": "ar",
         }
         # First registration
         await client.post("/api/v1/auth/register", json=payload)
-        # Second registration with same email
-        response = await client.post("/api/v1/auth/register", json=payload)
+        # Second registration with same email (different phone)
+        payload2 = {**payload, "phone": "+966502223355"}
+        response = await client.post("/api/v1/auth/register", json=payload2)
         assert response.status_code in (400, 409)
 
     @pytest.mark.asyncio
@@ -52,7 +72,18 @@ class TestRegistration:
         """Missing required fields should return 422 (Validation Error)."""
         response = await client.post("/api/v1/auth/register", json={
             "email": "incomplete@pillscan.sa",
-            # Missing password and full_name
+            # Missing password, full_name and phone
+        })
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_register_missing_phone(self, client: AsyncClient):
+        """Phone is now required at sign-up — omitting it should return 422."""
+        response = await client.post("/api/v1/auth/register", json={
+            "email": "nophone@pillscan.sa",
+            "password": "Secure@123",
+            "full_name": "بدون جوال",
+            "language": "ar",
         })
         assert response.status_code == 422
 
@@ -63,6 +94,7 @@ class TestRegistration:
             "email": "not-an-email",
             "password": "Secure@123",
             "full_name": "مستخدم خطأ",
+            "phone": "+966503334455",
         })
         assert response.status_code == 422
 

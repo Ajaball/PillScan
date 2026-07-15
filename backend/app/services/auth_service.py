@@ -149,11 +149,30 @@ async def get_current_user(
 async def get_current_admin(user: User = Depends(get_current_user)) -> User:
     """
     FastAPI dependency that ensures the current user is an admin.
-    Chain-depends on get_current_user.
+    Chain-depends on get_current_user. Accepts either the legacy ``is_admin``
+    flag or the newer ``role == "ADMIN"`` so both stay in sync.
     """
-    if not user.is_admin:
+    if not (user.is_admin or user.role == "ADMIN"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
+        )
+    return user
+
+
+async def get_current_approved_user(user: User = Depends(get_current_user)) -> User:
+    """
+    FastAPI dependency that ensures the current user's account is APPROVED.
+
+    Login already blocks non-approved accounts from obtaining a token, but this
+    guards app features server-side as defence in depth (e.g. an account that
+    was rejected after its token was issued). Admins are always allowed.
+    """
+    if user.role == "ADMIN" or user.is_admin:
+        return user
+    if user.status != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="حسابك قيد المراجعة، انتظر موافقة المدير",
         )
     return user

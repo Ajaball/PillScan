@@ -87,6 +87,8 @@ async def test_user(db_session: AsyncSession) -> dict:
         full_name="مستخدم تجريبي",
         password_hash=hash_password("Test@1234"),
         language="ar",
+        role="USER",
+        status="APPROVED",
         is_active=True,
         is_admin=False,
     )
@@ -118,6 +120,8 @@ async def admin_user(db_session: AsyncSession) -> dict:
         full_name="مدير النظام",
         password_hash=hash_password("Admin@1234"),
         language="ar",
+        role="ADMIN",
+        status="APPROVED",
         is_active=True,
         is_admin=True,
     )

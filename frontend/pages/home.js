@@ -63,6 +63,24 @@ const HomePage = {
           </div>
         </div>
 
+        <!-- Pharmacist Assistant Button -->
+        <div class="card card-interactive mt-4" id="assistant-card">
+          <div class="flex items-center gap-3">
+            <div class="med-card-icon" style="flex-shrink:0;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-sm">${i18n.t('assistant_card_title')}</h3>
+              <p class="text-xs text-secondary">${i18n.t('assistant_card_desc')}</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+          </div>
+        </div>
+
         <!-- Weekly Adherence -->
         <div class="section mt-6">
           <div class="flex items-center justify-between mb-3">
@@ -136,6 +154,11 @@ const HomePage = {
     // Leaflet summary scan
     document.getElementById('leaflet-scan-card')?.addEventListener('click', () => {
       router.navigate('/leaflet-scanner');
+    });
+
+    // Pharmacist assistant
+    document.getElementById('assistant-card')?.addEventListener('click', () => {
+      router.navigate('/drug-assistant');
     });
 
     // Search button
