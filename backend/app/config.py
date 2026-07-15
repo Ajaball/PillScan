@@ -87,11 +87,17 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_database_url(cls, v: str) -> str:
         """
-        Managed Postgres providers (Render, Heroku, Railway...) hand out URLs
-        with the sync ``postgres://`` or ``postgresql://`` scheme. This app uses
-        an async engine, which requires the ``postgresql+asyncpg://`` driver, so
-        rewrite the scheme automatically. SQLite and already-async URLs pass
-        through unchanged.
+        Managed Postgres providers (Render, Heroku, Railway, Neon, Supabase...)
+        hand out URLs with the sync ``postgres://`` or ``postgresql://`` scheme,
+        often with ``?sslmode=require&channel_binding=require`` query params.
+
+        This app uses an async engine (``postgresql+asyncpg://``), and the
+        asyncpg driver does NOT understand libpq's ``sslmode`` / ``channel_binding``
+        query params — leaving them in the URL makes the connection crash. So we:
+          1. rewrite the scheme to the async driver, and
+          2. strip the libpq-only query params (SSL itself is enabled in
+             database.py via connect_args for remote hosts).
+        SQLite and already-async URLs pass through unchanged.
         """
         if not isinstance(v, str) or not v:
             return v
@@ -99,6 +105,15 @@ class Settings(BaseSettings):
             v = "postgresql://" + v[len("postgres://"):]
         if v.startswith("postgresql://"):
             v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+
+        # Drop libpq-only query params that asyncpg rejects.
+        if v.startswith("postgresql+asyncpg://") and "?" in v:
+            from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+            parts = urlsplit(v)
+            drop = {"sslmode", "channel_binding"}
+            kept = [(k, val) for k, val in parse_qsl(parts.query) if k not in drop]
+            v = urlunsplit(parts._replace(query=urlencode(kept)))
         return v
 
 

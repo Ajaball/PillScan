@@ -43,7 +43,16 @@ services:
         value: production
       - key: DEBUG
         value: "false"
-      # SQLite (async driver). File lives inside the container (ephemeral).
+      # Database. Default is SQLite inside the container — EPHEMERAL: it is wiped
+      # on every deploy/restart, so accounts + stored keys reset.
+      #
+      # 👉 FOR PERMANENT STORAGE THAT SURVIVES UPDATES (free, no paid Render DB):
+      #    create a free Postgres on Neon (neon.tech) or Supabase (supabase.com),
+      #    copy its connection string, and paste it here as DATABASE_URL, e.g.
+      #    postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require
+      #    The app auto-converts it to the async driver, strips libpq-only params,
+      #    and enables TLS — no other change needed. Data then persists across
+      #    every redeploy.
       - key: DATABASE_URL
         value: sqlite+aiosqlite:///./pillscan.db
       - key: JWT_SECRET_KEY
@@ -59,10 +68,12 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      # ── Vision LLM (Google Gemini) — pill ID + leaflet summary ──
-      # Keys can also be entered per-user in the app (AI settings). These env
-      # keys are an optional shared fallback; up to five are tried in order
-      # with automatic failover. Paste your key(s) in the dashboard.
+      # ── Vision LLM (Google Gemini) — pill ID + leaflet + drug assistant ──
+      # IMPORTANT: set the key(s) HERE (server env) so they apply to EVERY user
+      # — regular users don't have their own keys, so without a server key their
+      # pill scan / assistant returns "not identified". A key entered per-user in
+      # the app's AI settings only helps that one account. Up to five are tried
+      # in order with automatic failover. Paste your key(s) in the dashboard.
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_API_KEY_2

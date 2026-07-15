@@ -15,10 +15,27 @@ engine_kwargs = {
     "pool_pre_ping": True,
 }
 
+
+def _is_remote_postgres(url: str) -> bool:
+    """True for a Postgres URL whose host is not local (i.e. a hosted DB)."""
+    if not url.startswith("postgresql"):
+        return False
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower()
+    return host not in ("", "localhost", "127.0.0.1", "::1")
+
+
 # pool_size and max_overflow are only supported by queue-based pools (like PostgreSQL)
 if settings.DATABASE_URL.startswith("postgresql"):
     engine_kwargs["pool_size"] = 20
     engine_kwargs["max_overflow"] = 10
+
+# Hosted Postgres (Neon, Supabase, Render, Railway...) requires TLS. asyncpg
+# enables SSL when passed ssl=True; we turn it on automatically for any remote
+# host so a pasted connection string "just works" without extra query params.
+if _is_remote_postgres(settings.DATABASE_URL):
+    engine_kwargs["connect_args"] = {"ssl": True}
 
 engine = create_async_engine(
     settings.DATABASE_URL,
