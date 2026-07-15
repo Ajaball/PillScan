@@ -58,19 +58,28 @@ def is_configured(user: Optional[Any] = None) -> bool:
     return bool(llm_keys.resolve_gemini_keys(user))
 
 
+def _generation_config(model: str, temperature: float) -> dict:
+    """
+    Build the Gemini generationConfig — kept identical in shape to the working
+    pill-ID / leaflet services (which this app already relies on). Notably it
+    does NOT set ``responseMimeType``: that field is rejected by the model this
+    app uses and made every key fail. JSON is requested via the prompt instead
+    and parsed defensively below. Thinking-capable models get thinking disabled
+    so the token budget produces the actual answer rather than internal reasoning.
+    """
+    config = {"temperature": temperature, "maxOutputTokens": 8192}
+    if llm_keys.is_thinking_capable(model):
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    return config
+
+
 async def _ask_gemini(drug_name: str, api_key: str, model: str) -> str:
     """Call Gemini generateContent (text only) and return the raw text."""
     url = (
         f"{settings.GEMINI_API_BASE}/models/{model}:generateContent"
         f"?key={api_key}"
     )
-    config = {
-        "temperature": 0.2,
-        "maxOutputTokens": 2048,
-        "responseMimeType": "application/json",
-    }
-    if llm_keys.is_thinking_capable(model):
-        config["thinkingConfig"] = {"thinkingBudget": 0}
+    config = _generation_config(model, temperature=0.2)
 
     payload = {
         "contents": [
