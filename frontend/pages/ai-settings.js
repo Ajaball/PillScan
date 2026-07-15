@@ -80,6 +80,7 @@ const AISettingsPage = {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
+        ${configured ? `<p class="text-xs text-tertiary mt-2">🔒 ${i18n.t('ai_key_keep_hint')}</p>` : ''}
         <div class="flex items-center justify-end mt-2">
           ${configured ? `<button class="btn btn-ghost btn-sm" id="gemini-clear-${slot}" style="color:var(--color-error);">${i18n.t('ai_clear_key')}</button>` : ''}
         </div>

@@ -85,6 +85,12 @@ const storage = {
     return this.get('user');
   },
 
+  /** Whether the stored user is an admin */
+  isAdmin() {
+    const user = this.getUser();
+    return !!user && (user.role === 'ADMIN' || user.is_admin === true);
+  },
+
   // ── App Settings ────────────────────────────────────────────────
 
   /** Check if onboarding was completed */

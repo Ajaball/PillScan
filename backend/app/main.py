@@ -12,7 +12,10 @@ import os
 
 from app.config import get_settings
 from app.database import create_tables, ensure_new_columns
-from app.routers import auth, users, drugs, scan, medications, reminders, adherence, leaflet
+from app.routers import (
+    auth, users, drugs, scan, medications, reminders, adherence, leaflet,
+    admin, assistant,
+)
 
 settings = get_settings()
 
@@ -100,6 +103,8 @@ app.include_router(leaflet.router, prefix=API_PREFIX)
 app.include_router(medications.router, prefix=API_PREFIX)
 app.include_router(reminders.router, prefix=API_PREFIX)
 app.include_router(adherence.router, prefix=API_PREFIX)
+app.include_router(admin.router, prefix=API_PREFIX)
+app.include_router(assistant.router, prefix=API_PREFIX)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────

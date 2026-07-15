@@ -41,11 +41,12 @@ const RegisterPage = {
             </div>
 
             <div class="input-group">
-              <label class="input-label">${i18n.t('phone')} <span class="text-tertiary text-xs">(${i18n.t('optional')})</span></label>
-              <div class="input-field">
+              <label class="input-label">${i18n.t('phone')} *</label>
+              <div class="input-field" id="reg-phone-field">
                 <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                <input type="tel" id="reg-phone" placeholder="+966 5XX XXX XXXX" autocomplete="tel" dir="ltr">
+                <input type="tel" id="reg-phone" placeholder="+966 5XX XXX XXXX" autocomplete="tel" dir="ltr" required>
               </div>
+              <span class="input-error-text hidden" id="reg-phone-error"></span>
             </div>
 
             <div class="input-group">
@@ -126,6 +127,14 @@ const RegisterPage = {
       hasError = true;
     } else this.clearError('reg-email');
 
+    if (!phone) {
+      this.showError('reg-phone', i18n.t('phone_required'));
+      hasError = true;
+    } else if (!/^\+?[0-9]{8,15}$/.test(phone.replace(/\s/g, ''))) {
+      this.showError('reg-phone', i18n.t('invalid_phone'));
+      hasError = true;
+    } else this.clearError('reg-phone');
+
     if (!password || password.length < 8) {
       this.showError('reg-password', i18n.t('password_min'));
       hasError = true;
@@ -145,15 +154,13 @@ const RegisterPage = {
         email,
         password,
         full_name: name,
-        phone: phone || undefined,
+        phone: phone.replace(/\s/g, ''),
         language: i18n.lang,
       });
 
-      toast.success(i18n.t('register_success'));
-      // Auto login
-      await api.login(email, password);
-      await api.getProfile();
-      router.navigate('/home');
+      // Account is created PENDING admin approval — no auto-login.
+      toast.success(i18n.t('register_pending'));
+      router.navigate('/login');
     } catch (error) {
       toast.error(error.message || i18n.t('error_generic'));
     } finally {

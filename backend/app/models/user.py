@@ -45,6 +45,20 @@ class User(Base):
     openai_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     llm_provider: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
+    # ── Role & approval workflow ──────────────────────────────────────────
+    # role:   USER (regular end user) | ADMIN (dashboard access).
+    # status: PENDING (awaiting admin approval) | APPROVED | REJECTED.
+    # New sign-ups default to role=USER, status=PENDING and cannot log in until
+    # an admin approves them. Existing rows are back-filled to APPROVED by the
+    # startup migration (see app.database.ensure_new_columns) so nobody is
+    # locked out. ``is_admin`` is kept in sync with role for backward compat.
+    role: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="USER"
+    )
+    status: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="PENDING"
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

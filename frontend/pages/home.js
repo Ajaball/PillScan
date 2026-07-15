@@ -63,6 +63,40 @@ const HomePage = {
           </div>
         </div>
 
+        <!-- Pharmacist Assistant Button -->
+        <div class="card card-interactive mt-4" id="assistant-card">
+          <div class="flex items-center gap-3">
+            <div class="med-card-icon" style="flex-shrink:0;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-sm">${i18n.t('assistant_card_title')}</h3>
+              <p class="text-xs text-secondary">${i18n.t('assistant_card_desc')}</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+          </div>
+        </div>
+
+        ${storage.isAdmin() ? `
+        <!-- Admin Panel shortcut (admins only) -->
+        <div class="card card-interactive mt-4" id="admin-home-card" style="border:1px solid var(--color-primary);">
+          <div class="flex items-center gap-3">
+            <div class="med-card-icon" style="flex-shrink:0;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-sm">${i18n.t('admin_panel')}</h3>
+              <p class="text-xs text-secondary">${i18n.t('admin_panel_desc')}</p>
+            </div>
+            <span class="badge badge-error hidden" id="admin-home-badge" style="margin-inline-end:6px;">0</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+          </div>
+        </div>` : ''}
+
         <!-- Weekly Adherence -->
         <div class="section mt-6">
           <div class="flex items-center justify-between mb-3">
@@ -137,6 +171,26 @@ const HomePage = {
     document.getElementById('leaflet-scan-card')?.addEventListener('click', () => {
       router.navigate('/leaflet-scanner');
     });
+
+    // Pharmacist assistant
+    document.getElementById('assistant-card')?.addEventListener('click', () => {
+      router.navigate('/drug-assistant');
+    });
+
+    // Admin shortcut + pending-request count (admins only)
+    document.getElementById('admin-home-card')?.addEventListener('click', () => {
+      router.navigate('/admin');
+    });
+    if (storage.isAdmin()) {
+      api.getUsers('PENDING').then(list => {
+        const n = (list || []).length;
+        const badge = document.getElementById('admin-home-badge');
+        if (badge && n > 0) {
+          badge.textContent = n > 99 ? '99+' : String(n);
+          badge.classList.remove('hidden');
+        }
+      }).catch(() => {});
+    }
 
     // Search button
     document.getElementById('search-btn')?.addEventListener('click', () => {

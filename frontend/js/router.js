@@ -123,6 +123,12 @@ class Router {
       return;
     }
 
+    // Admin guard (server also enforces the role on every admin endpoint)
+    if (route.admin && !storage.isAdmin()) {
+      this.navigate('/home');
+      return;
+    }
+
     // Guest only (login/register when already authenticated)
     if (route.guest && storage.isAuthenticated()) {
       this.navigate('/home');

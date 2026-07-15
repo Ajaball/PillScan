@@ -147,6 +147,7 @@ class ApiClient {
   get(path, options)  { return this.request('GET', path, options); }
   post(path, body, options = {})   { return this.request('POST', path, { ...options, body }); }
   put(path, body, options = {})    { return this.request('PUT', path, { ...options, body }); }
+  patch(path, body, options = {})  { return this.request('PATCH', path, { ...options, body }); }
   delete(path, options) { return this.request('DELETE', path, options); }
 
   /** Upload file (FormData) */
@@ -226,6 +227,26 @@ class ApiClient {
 
   getDrug(drugId) {
     return this.get(`/drugs/${drugId}`);
+  }
+
+  // ── Pharmacist Assistant ──────────────────────────────────────
+
+  /** Get general drug information (Arabic) for a drug name via Gemini */
+  getDrugInfo(name) {
+    return this.post('/assistant/drug-info', { name });
+  }
+
+  // ── Admin Endpoints (admin role only) ─────────────────────────
+
+  /** List users, optionally filtered by approval status (PENDING/APPROVED/REJECTED) */
+  getUsers(status = null) {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.get(`/admin/users${qs}`);
+  }
+
+  /** Change a user's approval status */
+  updateUserStatus(userId, status) {
+    return this.patch(`/admin/users/${userId}/status`, { status });
   }
 
   // ── Scan Endpoints ────────────────────────────────────────────

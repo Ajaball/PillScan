@@ -35,6 +35,20 @@ const ProfilePage = {
         <h3 class="font-semibold mt-6 mb-3">${i18n.t('settings')}</h3>
 
         <div class="settings-list stagger-children">
+          ${storage.isAdmin() ? `
+          <!-- Admin Panel (admins only) -->
+          <div class="card card-interactive animate-fade-in-up settings-item" id="admin-panel-setting">
+            <div class="flex items-center gap-3">
+              <div class="settings-icon">🛡️</div>
+              <div class="flex-1">
+                <p class="font-medium">${i18n.t('admin_panel')}</p>
+                <p class="text-xs text-secondary">${i18n.t('admin_panel_desc')}</p>
+              </div>
+              <span class="badge badge-error hidden" id="admin-pending-badge" style="margin-inline-end:6px;">0</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+            </div>
+          </div>` : ''}
+
           <!-- Language -->
           <div class="card card-interactive animate-fade-in-up settings-item" id="lang-setting">
             <div class="flex items-center gap-3">
@@ -157,6 +171,21 @@ const ProfilePage = {
     document.getElementById('ai-settings-setting')?.addEventListener('click', () => {
       router.navigate('/ai-settings');
     });
+
+    // Admin panel (admins only) + live pending-request count badge
+    document.getElementById('admin-panel-setting')?.addEventListener('click', () => {
+      router.navigate('/admin');
+    });
+    if (storage.isAdmin()) {
+      api.getUsers('PENDING').then(list => {
+        const n = (list || []).length;
+        const badge = document.getElementById('admin-pending-badge');
+        if (badge && n > 0) {
+          badge.textContent = n > 99 ? '99+' : String(n);
+          badge.classList.remove('hidden');
+        }
+      }).catch(() => {});
+    }
 
     // Logout
     document.getElementById('logout-btn')?.addEventListener('click', () => {
