@@ -96,7 +96,7 @@ async def identify_pill(
 
     # ── Vision LLM identification (Gemini) ────────────────────────────
     try:
-        llm_result = await pill_id_service.identify_pill(contents, image.content_type, user=user)
+        llm_result = await pill_id_service.identify_pill(contents, image.content_type, user=user, db=db)
     except pill_id_service.PillIdError as e:
         print(f"[Scan Router] LLM identification failed: {e}")
         llm_result = None

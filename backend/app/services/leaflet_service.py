@@ -149,6 +149,7 @@ async def summarize_leaflet(
     image_bytes: bytes,
     content_type: Optional[str],
     user: Optional[Any] = None,
+    db: Any = None,
 ) -> dict:
     """
     Summarize a medication leaflet image in Arabic using Gemini.
@@ -176,7 +177,7 @@ async def summarize_leaflet(
         "disclaimer_en": DISCLAIMER_EN,
     }
 
-    keys = llm_keys.resolve_gemini_keys(user)
+    keys = await llm_keys.resolve_gemini_keys_async(user, db)
     if not keys:
         return {
             **base_result,

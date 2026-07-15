@@ -60,7 +60,7 @@ class TestHybridScan:
     ):
         """The LLM candidate is mapped to the DB drug."""
 
-        async def fake_identify(image_bytes, content_type, user=None):
+        async def fake_identify(image_bytes, content_type, user=None, db=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -91,7 +91,7 @@ class TestHybridScan:
     ):
         """An LLM identification not in the DB is still returned (drug_id null)."""
 
-        async def fake_identify(image_bytes, content_type, user=None):
+        async def fake_identify(image_bytes, content_type, user=None, db=None):
             return {
                 "provider": "gemini", "model": "g",
                 "candidates": [{
@@ -124,7 +124,7 @@ class TestHybridScan:
         list with mode 'unidentified' — NOT a fabricated Panadol match.
         """
 
-        async def fake_identify(image_bytes, content_type, user=None):
+        async def fake_identify(image_bytes, content_type, user=None, db=None):
             return None  # provider not configured
 
         monkeypatch.setattr(pill_id_service, "identify_pill", fake_identify)
@@ -145,7 +145,7 @@ class TestHybridScan:
     ):
         """A provider error during identification yields an honest empty result."""
 
-        async def boom(image_bytes, content_type, user=None):
+        async def boom(image_bytes, content_type, user=None, db=None):
             raise pill_id_service.PillIdError("provider down")
 
         monkeypatch.setattr(pill_id_service, "identify_pill", boom)

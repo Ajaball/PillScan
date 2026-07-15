@@ -69,11 +69,11 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       # ── Vision LLM (Google Gemini) — pill ID + leaflet + drug assistant ──
-      # IMPORTANT: set the key(s) HERE (server env) so they apply to EVERY user
-      # — regular users don't have their own keys, so without a server key their
-      # pill scan / assistant returns "not identified". A key entered per-user in
-      # the app's AI settings only helps that one account. Up to five are tried
-      # in order with automatic failover. Paste your key(s) in the dashboard.
+      # EASIEST: sign in as an ADMIN and add your key in the app (AI settings) —
+      # admin keys are shared automatically with EVERY user, so these server env
+      # keys are OPTIONAL. They still work as an extra shared fallback (up to five,
+      # tried in order with automatic failover). Paste your key(s) here if you
+      # prefer configuring them at the server level instead of in the app.
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_API_KEY_2

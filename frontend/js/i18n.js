@@ -242,6 +242,7 @@ const translations = {
     ai_settings_saved: 'تم حفظ الإعدادات',
     ai_key_cleared: 'تم حذف المفتاح',
     ai_key_keep_hint: 'اترك الحقل فارغًا للإبقاء على المفتاح المحفوظ. لن يُحذف إلا بالضغط على «حذف المفتاح».',
+    ai_admin_shared_note: '👑 أنت مدير: المفاتيح التي تضيفها هنا تُستخدم تلقائيًا لجميع المستخدمين (المسح، التلخيص، والمساعد الدوائي) — لا حاجة لأن يضيف كل مستخدم مفتاحه.',
     ai_no_changes: 'لا توجد تغييرات لحفظها',
     ai_model: 'الموديل',
 
@@ -538,6 +539,7 @@ const translations = {
     ai_settings_saved: 'Settings saved',
     ai_key_cleared: 'Key removed',
     ai_key_keep_hint: 'Leave the field empty to keep the saved key. It is only removed by pressing "Remove key".',
+    ai_admin_shared_note: '👑 You are an admin: keys you add here are used automatically for ALL users (scan, summary, and drug assistant) — each user does not need their own key.',
     ai_model: 'Model',
     ai_test_keys: 'Test keys',
     ai_key_ok: 'Works ✓',
