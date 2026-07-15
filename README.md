@@ -72,6 +72,11 @@ If no key is set, both endpoints still respond with a clear setup message
   * `APPROVED` ← يدخل بنجاح.
 * السجلّات القديمة تُرحّل تلقائيًا إلى `APPROVED` عند الإقلاع (بدون فقدان بيانات).
 * حساب المدير يُنشأ تلقائيًا من متغيرات البيئة (`ADMIN_EMAIL` / `ADMIN_PHONE` / `ADMIN_PASSWORD`) إن لم يكن موجودًا.
+* لترقية مستخدم مسجّل بالفعل إلى مدير (بدل إنشاء واحد من البيئة):
+  ```bash
+  cd backend && python -m app.make_admin user@example.com
+  ```
+  يجعل الحساب `role=ADMIN` و`status=APPROVED` (آمن وidempotent، ولا يمسّ كلمة المرور).
 
 ### 🛡️ لوحة المدير — `/admin` (مدير فقط)
 * عرض الطلبات المعلّقة (الاسم، البريد، الجوال، تاريخ الطلب) مع زرّي **قبول/رفض**.
