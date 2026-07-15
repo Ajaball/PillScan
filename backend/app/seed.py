@@ -347,26 +347,35 @@ async def seed_database():
         result = await session.execute(select(func.count()).select_from(Drug))
         count = result.scalar()
 
-        # Seed default user if none exists
+        # Seed the single admin account from environment variables
+        # (ADMIN_EMAIL / ADMIN_PHONE / ADMIN_PASSWORD). Idempotent: creates it
+        # only when no user with that email exists yet. The admin is always
+        # role=ADMIN and status=APPROVED so it can sign in and manage requests.
         from app.models.user import User
-        user_result = await session.execute(select(func.count()).select_from(User))
-        user_count = user_result.scalar()
+        from app.config import get_settings
+        _s = get_settings()
 
-        if user_count == 0:
-            print("   [INFO] Seeding default demo user...")
+        admin_result = await session.execute(
+            select(User).where(User.email == _s.ADMIN_EMAIL)
+        )
+        admin_user = admin_result.scalar_one_or_none()
+
+        if admin_user is None:
+            print("   [INFO] Seeding admin account from environment...")
             from app.services.auth_service import hash_password
-            from app.config import get_settings
-            _s = get_settings()
-            demo_user = User(
+            admin_user = User(
                 email=_s.ADMIN_EMAIL,
+                phone=_s.ADMIN_PHONE or None,
                 password_hash=hash_password(_s.ADMIN_PASSWORD),
                 full_name="PillScan Admin",
                 language="ar",
-                is_admin=True
+                role="ADMIN",
+                status="APPROVED",
+                is_admin=True,
             )
-            session.add(demo_user)
+            session.add(admin_user)
             await session.flush()
-            print(f"   [SUCCESS] Seeded default admin user: {_s.ADMIN_EMAIL}")
+            print(f"   [SUCCESS] Seeded admin account: {_s.ADMIN_EMAIL}")
 
         if count > 0:
             print(f"   [INFO] Database already has {count} drugs. Skipping seed.")

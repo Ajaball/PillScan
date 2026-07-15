@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     # anything that already exists. Set SEED_ON_STARTUP=false to disable.
     SEED_ON_STARTUP: bool = True
     ADMIN_EMAIL: str = "admin@pillscan.com"
+    ADMIN_PHONE: str = "+966500000000"  # override via env var in production!
     ADMIN_PASSWORD: str = "admin123"  # override via env var in production!
 
     # ── Rate Limiting ────────────────────────────────────────────────────

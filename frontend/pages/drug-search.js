@@ -47,8 +47,25 @@ const DrugSearchPage = {
 
     try {
       const drugs = await api.searchDrugs(query);
+      const assistantCta = `
+        <div class="card card-interactive mt-4 assistant-cta">
+          <div class="flex items-center gap-3">
+            <div class="avatar avatar-md" style="background:var(--color-primary-gradient);">🤖</div>
+            <div class="flex-1">
+              <h4 class="font-semibold text-sm">${i18n.t('assistant_ask_about')}</h4>
+              <p class="text-xs text-tertiary">${query}</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round"><path d="${i18n.isRTL ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+          </div>
+        </div>`;
+      const wireAssistant = () => {
+        container.querySelector('.assistant-cta')?.addEventListener('click', () =>
+          router.navigate('/drug-assistant', { name: query }));
+      };
+
       if (!drugs || drugs.length === 0) {
-        container.innerHTML = `<div class="empty-state mt-8"><div class="text-4xl mb-3">🔍</div><p class="text-secondary">${i18n.t('no_results_found')}</p></div>`;
+        container.innerHTML = `<div class="empty-state mt-8"><div class="text-4xl mb-3">🔍</div><p class="text-secondary">${i18n.t('no_results_found')}</p></div>${assistantCta}`;
+        wireAssistant();
         return;
       }
       container.innerHTML = `<div class="stagger-children">${drugs.map(d => `
@@ -62,11 +79,12 @@ const DrugSearchPage = {
             <span class="badge badge-primary text-xs">${d.category || ''}</span>
           </div>
         </div>
-      `).join('')}</div>`;
+      `).join('')}</div>${assistantCta}`;
 
       container.querySelectorAll('.drug-result').forEach(el => {
         el.addEventListener('click', () => router.navigate('/drug/:id', { id: el.dataset.id }));
       });
+      wireAssistant();
     } catch {
       container.innerHTML = `<p class="text-center text-secondary">${i18n.t('error_generic')}</p>`;
     }
