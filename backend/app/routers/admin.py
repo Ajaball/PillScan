@@ -18,8 +18,31 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import AdminUserResponse, UpdateUserStatusRequest
 from app.services.auth_service import get_current_admin
+from app.config import get_settings
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+settings = get_settings()
+
+
+@router.get("/db-status")
+async def db_status(admin: User = Depends(get_current_admin)):
+    """
+    [Admin] Report whether storage is persistent so the admin can see at a
+    glance if data survives redeploys. Never exposes credentials — only the
+    engine type and host (host shown for Postgres so it's clear which DB).
+    """
+    url = settings.DATABASE_URL or ""
+    is_sqlite = url.startswith("sqlite")
+    host = None
+    if not is_sqlite:
+        from urllib.parse import urlsplit
+        host = urlsplit(url).hostname
+
+    return {
+        "engine": "sqlite" if is_sqlite else "postgres",
+        "persistent": not is_sqlite,
+        "host": host,
+    }
 
 
 @router.get("/users", response_model=list[AdminUserResponse])

@@ -249,6 +249,11 @@ class ApiClient {
     return this.patch(`/admin/users/${userId}/status`, { status });
   }
 
+  /** Storage status (persistent Postgres vs ephemeral SQLite) */
+  getDbStatus() {
+    return this.get('/admin/db-status');
+  }
+
   // ── Scan Endpoints ────────────────────────────────────────────
 
   async scanPill(imageFile) {
