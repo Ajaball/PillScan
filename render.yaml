@@ -50,6 +50,15 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: '["*"]'
+      # ── Admin account (seeded on startup if missing) ──
+      # Set these in the Render dashboard (kept out of the repo). If left unset,
+      # the app falls back to the defaults in app/config.py. Change the password!
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PHONE
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       # ── Vision LLM (Google Gemini) — pill ID + leaflet summary ──
       # Keys can also be entered per-user in the app (AI settings). These env
       # keys are an optional shared fallback; up to five are tried in order
