@@ -3,13 +3,26 @@ Pharmacist Assistant Schemas
 Request/response models for the AI drug-information assistant endpoint.
 """
 
-from typing import List
+from typing import List, Optional
+from uuid import UUID
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
 class DrugInfoRequest(BaseModel):
     """A drug name to look up (Arabic or English)."""
     name: str = Field(..., min_length=1, max_length=120)
+
+
+class DrugQueryHistoryItem(BaseModel):
+    """One past drug-assistant lookup from the user's query history."""
+    id: UUID
+    query_text: str
+    recognized: bool
+    result: Optional[dict] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class DrugInfoResponse(BaseModel):

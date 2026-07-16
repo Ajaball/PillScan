@@ -38,6 +38,8 @@ const DrugAssistantPage = {
           </button>
         </form>
 
+        <div id="assistant-recent" class="mt-3"></div>
+
         <div id="assistant-results" class="mt-4">
           <p class="text-center text-secondary text-sm mt-8">${i18n.t('assistant_empty')}</p>
         </div>
@@ -60,6 +62,37 @@ const DrugAssistantPage = {
     if (prefill) {
       input.value = prefill;
       this.doSearch(prefill);
+    }
+
+    this.loadRecent();
+  },
+
+  async loadRecent() {
+    const box = document.getElementById('assistant-recent');
+    if (!box) return;
+    try {
+      const items = await api.getAssistantHistory(10);
+      if (!items || !items.length) { box.innerHTML = ''; return; }
+      // De-duplicate by query text, keep most recent order.
+      const seen = new Set();
+      const unique = [];
+      for (const it of items) {
+        const q = (it.query_text || '').trim();
+        if (q && !seen.has(q)) { seen.add(q); unique.push(q); }
+      }
+      box.innerHTML = `
+        <p class="text-xs text-tertiary mb-2">${i18n.t('assistant_recent')}</p>
+        <div class="flex" style="flex-wrap:wrap;gap:8px;">
+          ${unique.slice(0, 8).map(q => `<button class="badge badge-primary recent-chip" data-q="${this.esc(q)}" style="cursor:pointer;">${this.esc(q)}</button>`).join('')}
+        </div>`;
+      box.querySelectorAll('.recent-chip').forEach(chip =>
+        chip.addEventListener('click', () => {
+          const input = document.getElementById('assistant-input');
+          if (input) input.value = chip.dataset.q;
+          this.doSearch(chip.dataset.q);
+        }));
+    } catch {
+      box.innerHTML = '';
     }
   },
 
@@ -86,6 +119,7 @@ const DrugAssistantPage = {
     try {
       const info = await api.getDrugInfo(name);
       this.renderResult(container, info);
+      this.loadRecent();  // reflect this lookup in the recent-searches list
     } catch (err) {
       container.innerHTML = `<div class="empty-state mt-6"><div class="text-4xl mb-2">⚠️</div><p class="text-secondary text-sm">${err.message || i18n.t('error_generic')}</p></div>`;
     } finally {

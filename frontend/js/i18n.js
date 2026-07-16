@@ -287,6 +287,7 @@ const translations = {
     assistant_side_effects: 'الأعراض الجانبية',
     assistant_usage_times: 'مواعيد الاستخدام',
     assistant_ask_about: 'اسأل المساعد الدوائي',
+    assistant_recent: 'عمليات البحث الأخيرة',
     ai_test_keys: 'اختبار المفاتيح',
     ai_key_ok: 'يعمل ✓',
     ai_key_failed: 'فشل',
@@ -591,6 +592,7 @@ const translations = {
     assistant_side_effects: 'Side Effects',
     assistant_usage_times: 'Usage Times',
     assistant_ask_about: 'Ask the Drug Assistant',
+    assistant_recent: 'Recent searches',
 
     // ── Offline ────────────────────────────────────────────────────
     offline_title: 'No Connection',

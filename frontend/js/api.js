@@ -255,6 +255,11 @@ class ApiClient {
     return this.post('/assistant/drug-info', { name });
   }
 
+  /** The current user's recent drug-assistant lookups (query history) */
+  getAssistantHistory(limit = 10) {
+    return this.get(`/assistant/history?limit=${limit}`);
+  }
+
   // ── Admin Endpoints (admin role only) ─────────────────────────
 
   /** List users, optionally filtered by approval status (PENDING/APPROVED/REJECTED) */
