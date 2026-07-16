@@ -15,6 +15,9 @@ const STATUS_BADGE = {
   REJECTED: 'badge-error',
 };
 
+// Bump this when the admin panel changes so deploys are easy to verify at a glance.
+const PANEL_VERSION = 'v6';
+
 const AdminPage = {
   render() {
     return `
@@ -28,6 +31,15 @@ const AdminPage = {
       <div class="page-content">
         <!-- Storage status -->
         <div id="db-status" class="mb-4"></div>
+
+        <!-- Overview stats -->
+        <div class="section">
+          <h3 class="font-semibold mb-3">${i18n.t('admin_stats_title')}</h3>
+          <div id="admin-stats" class="grid grid-2 gap-3">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
 
         <!-- Pending requests -->
         <div class="section">
@@ -47,6 +59,10 @@ const AdminPage = {
             <div class="skeleton skeleton-card mb-3"></div>
           </div>
         </div>
+
+        <p class="text-center text-xs text-tertiary mb-6">
+          ${i18n.t('admin_version')}: <span dir="ltr">${PANEL_VERSION}</span>
+        </p>
       </div>
     `;
   },
@@ -133,6 +149,7 @@ const AdminPage = {
 
     try {
       const users = await api.getUsers();
+      this.renderStats(users);
       if (!users.length) {
         container.innerHTML = `<p class="text-center text-secondary text-sm">${i18n.t('admin_no_users')}</p>`;
         return;
@@ -163,8 +180,27 @@ const AdminPage = {
       container.querySelectorAll('.status-select').forEach(sel =>
         sel.addEventListener('change', () => this.changeStatus(sel.dataset.id, sel.value)));
     } catch (err) {
+      this.renderStats([]);
       container.innerHTML = `<p class="text-center text-secondary text-sm">${err.message || i18n.t('error_generic')}</p>`;
     }
+  },
+
+  renderStats(users) {
+    const el = document.getElementById('admin-stats');
+    if (!el) return;
+    const by = (s) => users.filter(u => u.status === s).length;
+    const cards = [
+      { label: 'admin_stat_total', value: users.length, cls: 'stat-total' },
+      { label: 'admin_stat_pending', value: by('PENDING'), cls: 'stat-warning' },
+      { label: 'admin_stat_approved', value: by('APPROVED'), cls: 'stat-success' },
+      { label: 'admin_stat_rejected', value: by('REJECTED'), cls: 'stat-error' },
+    ];
+    el.className = 'grid grid-2 gap-3';
+    el.innerHTML = cards.map(c => `
+      <div class="stat-box ${c.cls}">
+        <div class="stat-number">${c.value}</div>
+        <div class="stat-label">${i18n.t(c.label)}</div>
+      </div>`).join('');
   },
 
   async changeStatus(userId, status) {

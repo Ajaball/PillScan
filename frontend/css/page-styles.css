@@ -743,6 +743,7 @@
 .stat-success { background: var(--color-success-bg); }
 .stat-warning { background: var(--color-warning-bg); }
 .stat-error   { background: var(--color-error-bg); }
+.stat-total   { background: var(--color-surface); }
 
 .stat-number {
   font-size: var(--font-size-xl);
