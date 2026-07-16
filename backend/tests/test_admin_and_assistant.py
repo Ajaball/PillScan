@@ -122,6 +122,71 @@ class TestAdminAccessControl:
         assert data["engine"] in ("sqlite", "postgres")
         assert "persistent" in data
 
+    @pytest.mark.asyncio
+    async def test_stats_admin_only(self, client: AsyncClient, test_user: dict):
+        """Activity stats are admin-only — a regular user is rejected server-side."""
+        response = await client.get(
+            "/api/v1/admin/stats", headers=test_user["auth_header"],
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_stats_requires_auth(self, client: AsyncClient):
+        response = await client.get("/api/v1/admin/stats")
+        assert response.status_code in (401, 403)
+
+    @pytest.mark.asyncio
+    async def test_stats_returns_all_counters(self, client: AsyncClient, admin_user: dict):
+        """The endpoint returns every expected counter as a non-negative integer."""
+        response = await client.get(
+            "/api/v1/admin/stats", headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        data = response.json()
+        for key in ("scans", "medications", "reminders", "queries"):
+            assert key in data
+            assert isinstance(data[key], int)
+            assert data[key] >= 0
+
+    @pytest.mark.asyncio
+    async def test_stats_reflects_created_rows(
+        self, client: AsyncClient, admin_user: dict, db_session
+    ):
+        """Counters increase when matching rows exist, and honor the is_active filter."""
+        import uuid
+        from datetime import time
+        from app.models.scan_history import ScanHistory
+        from app.models.medication import Medication
+        from app.models.reminder import Reminder
+        from app.models.user_query import UserQuery
+
+        admin_id = uuid.UUID(admin_user["id"])
+
+        med_active = Medication(user_id=admin_id, drug_id=None, is_active=True)
+        med_inactive = Medication(user_id=admin_id, drug_id=None, is_active=False)
+        db_session.add_all([
+            ScanHistory(user_id=admin_id, image_url="http://x/a.jpg"),
+            ScanHistory(user_id=admin_id, image_url="http://x/b.jpg"),
+            med_active,
+            med_inactive,
+            UserQuery(user_id=admin_id, query_text="بنادول", recognized=True),
+        ])
+        await db_session.flush()
+        db_session.add(
+            Reminder(user_id=admin_id, medication_id=med_active.id,
+                     reminder_time=time(8, 0), is_active=True)
+        )
+        await db_session.commit()
+
+        response = await client.get(
+            "/api/v1/admin/stats", headers=admin_user["auth_header"],
+        )
+        data = response.json()
+        assert data["scans"] == 2
+        assert data["medications"] == 1  # only the active medication is counted
+        assert data["reminders"] == 1
+        assert data["queries"] == 1
+
 
 class TestAssistantGuard:
     @pytest.mark.asyncio

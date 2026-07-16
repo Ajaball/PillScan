@@ -278,6 +278,11 @@ class ApiClient {
     return this.get('/admin/db-status');
   }
 
+  /** System-wide activity counters (scans, medications, reminders, queries) */
+  getAdminStats() {
+    return this.get('/admin/stats');
+  }
+
   // ── Scan Endpoints ────────────────────────────────────────────
 
   async scanPill(imageFile) {
