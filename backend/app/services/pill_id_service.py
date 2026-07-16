@@ -17,8 +17,6 @@ import json
 import re
 from typing import Optional
 
-import httpx
-
 from app.config import get_settings
 from app.services import llm_keys
 
@@ -58,61 +56,21 @@ def is_configured(user=None) -> bool:
     return bool(llm_keys.resolve_gemini_keys(user))
 
 
-def _gemini_generation_config(temperature: float) -> dict:
-    """
-    Build the Gemini generationConfig.
-
-    Thinking-capable models spend the output token budget on internal
-    reasoning by default, which can return empty text. We give a high token
-    budget and disable thinking so the tokens go to the actual answer.
-    (thinkingConfig is only valid on thinking-capable models, so it is
-    omitted for older ones.)
-    """
-    config = {"temperature": temperature, "maxOutputTokens": 8192}
-    if llm_keys.is_thinking_capable(settings.GEMINI_MODEL):
-        config["thinkingConfig"] = {"thinkingBudget": 0}
-    return config
-
-
 async def _call_gemini(image_b64: str, mime_type: str, api_key: str) -> str:
-    url = (
-        f"{settings.GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
-        f"?key={api_key}"
-    )
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": IDENTIFY_PROMPT},
-                    {"inline_data": {"mime_type": mime_type, "data": image_b64}},
-                ]
-            }
-        ],
-        "generationConfig": _gemini_generation_config(temperature=0.1),
-    }
-    async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, json=payload)
-    if response.status_code != 200:
-        raise PillIdError(f"Gemini API error {response.status_code}: {response.text[:200]}")
-    data = response.json()
+    """
+    Call Gemini for pill identification and return the raw JSON text.
 
-    # Input blocked by safety filters (no candidates returned at all).
-    block = (data.get("promptFeedback") or {}).get("blockReason")
-    if block:
-        raise PillIdError(f"Gemini blocked the request (promptFeedback: {block})")
-
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise PillIdError(f"Gemini returned no candidates: {str(data)[:200]}")
-
-    candidate = candidates[0]
-    parts = (candidate.get("content") or {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in parts).strip()
-    if not text:
-        # e.g. finishReason SAFETY / MAX_TOKENS / RECITATION with no usable text.
-        finish = candidate.get("finishReason", "UNKNOWN")
-        raise PillIdError(f"Gemini returned empty text (finishReason: {finish})")
-    return text
+    Model fallback, error classification, timeouts and network errors are
+    handled centrally in ``llm_keys.gemini_generate``.
+    """
+    parts = [
+        {"text": IDENTIFY_PROMPT},
+        {"inline_data": {"mime_type": mime_type, "data": image_b64}},
+    ]
+    try:
+        return await llm_keys.gemini_generate(parts, api_key, temperature=0.1)
+    except llm_keys.GeminiError as e:
+        raise PillIdError(str(e))
 
 
 def _extract_json(text: str) -> dict:

@@ -159,3 +159,23 @@ class TestHybridScan:
         data = response.json()
         assert data["inference_mode"] == "unidentified"
         assert data["predictions"] == []
+
+    @pytest.mark.asyncio
+    async def test_empty_image_is_rejected(self, client: AsyncClient, test_user: dict):
+        """An empty upload returns 400, not a 500 crash in the image decoder."""
+        response = await client.post(
+            "/api/v1/scan/identify",
+            headers=test_user["auth_header"],
+            files={"image": ("pill.jpg", b"", "image/jpeg")},
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_corrupt_image_is_rejected(self, client: AsyncClient, test_user: dict):
+        """Non-decodable bytes with an image content-type return 400, not 500."""
+        response = await client.post(
+            "/api/v1/scan/identify",
+            headers=test_user["auth_header"],
+            files={"image": ("pill.jpg", b"not-a-real-image", "image/jpeg")},
+        )
+        assert response.status_code == 400

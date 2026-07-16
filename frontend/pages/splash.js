@@ -52,13 +52,14 @@ const SplashPage = {
     const progressBar = document.getElementById('splash-progress-bar');
     let progress = 0;
 
-    const interval = setInterval(() => {
+    this._interval = setInterval(() => {
       progress += Math.random() * 15 + 5;
       if (progress >= 100) {
         progress = 100;
-        clearInterval(interval);
+        clearInterval(this._interval);
+        this._interval = null;
         // Navigate after animation
-        setTimeout(() => {
+        this._navTimer = setTimeout(() => {
           if (!storage.isOnboardingDone()) {
             router.navigate('/onboarding');
           } else if (storage.isAuthenticated()) {
@@ -74,7 +75,11 @@ const SplashPage = {
     }, 200);
   },
 
-  unmount() {}
+  unmount() {
+    // Stop the progress timer/navigation if the user leaves the splash early.
+    if (this._interval) { clearInterval(this._interval); this._interval = null; }
+    if (this._navTimer) { clearTimeout(this._navTimer); this._navTimer = null; }
+  }
 };
 
 export default SplashPage;

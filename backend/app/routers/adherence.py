@@ -114,7 +114,11 @@ async def get_adherence_stats(
 
 @router.get("/calendar", response_model=AdherenceCalendarResponse)
 async def get_adherence_calendar(
-    month: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Month in YYYY-MM format"),
+    month: str = Query(
+        ...,
+        pattern=r"^\d{4}-(0[1-9]|1[0-2])$",
+        description="Month in YYYY-MM format (01–12)",
+    ),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -122,8 +126,14 @@ async def get_adherence_calendar(
     Get a calendar view of adherence data for a specific month.
     Returns per-day breakdown of taken/skipped/missed.
     """
-    year, month_num = map(int, month.split("-"))
-    start = datetime(year, month_num, 1, tzinfo=timezone.utc)
+    try:
+        year, month_num = map(int, month.split("-"))
+        start = datetime(year, month_num, 1, tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid month. Use YYYY-MM with month 01–12.",
+        )
     if month_num == 12:
         end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     else:

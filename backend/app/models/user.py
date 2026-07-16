@@ -74,6 +74,7 @@ class User(Base):
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
     scan_history = relationship("ScanHistory", back_populates="user", cascade="all, delete-orphan")
     adherence_logs = relationship("AdherenceLog", back_populates="user", cascade="all, delete-orphan")
+    queries = relationship("UserQuery", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"

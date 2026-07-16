@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
@@ -30,7 +31,13 @@ async def list_medications(
     db: AsyncSession = Depends(get_db),
 ):
     """List all medications for the current user."""
-    query = select(Medication).where(Medication.user_id == user.id)
+    # Eager-load the drug relationship: with an async session a lazy load here
+    # would raise MissingGreenlet (→ 500).
+    query = (
+        select(Medication)
+        .options(selectinload(Medication.drug))
+        .where(Medication.user_id == user.id)
+    )
     if active_only:
         query = query.where(Medication.is_active == True)
     query = query.order_by(Medication.created_at.desc())
@@ -147,7 +154,14 @@ async def update_medication(
         setattr(medication, field, value)
 
     await db.flush()
-    await db.refresh(medication)
+
+    # Re-load with the drug eager-loaded (async lazy access would 500 otherwise).
+    reloaded = await db.execute(
+        select(Medication)
+        .options(selectinload(Medication.drug))
+        .where(Medication.id == medication_id)
+    )
+    medication = reloaded.scalar_one()
 
     drug_name_en = medication.drug.name_en if medication.drug else None
     drug_name_ar = medication.drug.name_ar if medication.drug else None

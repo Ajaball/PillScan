@@ -15,6 +15,8 @@ list for a request, and a generic "try each key until one works" helper.
 import re
 from typing import Any, Awaitable, Callable, List, Optional, TypeVar
 
+import httpx
+
 from app.config import get_settings
 from app.utils.crypto import decrypt_secret
 
@@ -153,3 +155,118 @@ def is_thinking_capable(model: str) -> bool:
         return False
     major, minor = int(match.group(1)), int(match.group(2))
     return (major, minor) >= (2, 5)
+
+
+# ── Centralised Gemini call (model fallback + error classification) ────────
+
+class GeminiError(Exception):
+    """
+    A classified Gemini failure. ``kind`` is one of:
+    'invalid_key', 'permission', 'quota', 'model', 'blocked', 'empty',
+    'timeout', 'network', 'http'. ``message_ar`` is a user-facing Arabic message.
+    """
+
+    _AR = {
+        "invalid_key": "مفتاح Gemini غير صالح. تحقّق من المفتاح في إعدادات الذكاء الاصطناعي.",
+        "permission": "خدمة Generative Language غير مُفعّلة لهذا المفتاح في Google.",
+        "quota": "انتهى رصيد/حد استخدام المفاتيح. حاول لاحقًا أو أضف مفتاحًا آخر.",
+        "model": "النموذج غير متاح لهذا المفتاح.",
+        "blocked": "تعذّر تنفيذ الطلب (حجب من مرشّح الأمان).",
+        "empty": "لم يرجع النموذج نتيجة. حاول مرة أخرى.",
+        "timeout": "استغرقت الخدمة وقتًا أطول من المعتاد. حاول مرة أخرى.",
+        "network": "تعذّر الاتصال بخدمة الذكاء الاصطناعي. تحقّق من الشبكة.",
+        "http": "خطأ من خدمة الذكاء الاصطناعي. حاول مرة أخرى.",
+    }
+
+    def __init__(self, message: str, *, kind: str = "http"):
+        super().__init__(message)
+        self.kind = kind
+        self.message_ar = self._AR.get(kind, self._AR["http"])
+
+
+def gemini_models() -> List[str]:
+    """Primary model followed by fallbacks (de-duplicated, non-empty)."""
+    models = [settings.GEMINI_MODEL] + list(getattr(settings, "GEMINI_MODEL_FALLBACKS", []) or [])
+    return _dedupe([m for m in models if m and m.strip()])
+
+
+def _generation_config(model: str, temperature: float, max_output_tokens: int) -> dict:
+    config = {"temperature": temperature, "maxOutputTokens": max_output_tokens}
+    if is_thinking_capable(model):
+        # Disable "thinking" so the token budget produces the actual answer.
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    return config
+
+
+async def gemini_generate(
+    parts: list,
+    api_key: str,
+    *,
+    temperature: float = 0.2,
+    max_output_tokens: int = 8192,
+) -> str:
+    """
+    Call Gemini ``generateContent`` with the given content parts and return the
+    text. Tries each model from :func:`gemini_models` on a 404 (model not found)
+    so a bad/unavailable primary model does not break identification. All other
+    failures raise a classified :class:`GeminiError` (invalid key, quota,
+    timeout, network, …) so callers can show an accurate message.
+    """
+    timeout = settings.LLM_TIMEOUT_SECONDS
+    last_model_error: Optional[GeminiError] = None
+
+    for model in gemini_models():
+        url = (
+            f"{settings.GEMINI_API_BASE}/models/{model}:generateContent"
+            f"?key={api_key}"
+        )
+        payload = {
+            "contents": [{"parts": parts}],
+            "generationConfig": _generation_config(model, temperature, max_output_tokens),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(url, json=payload)
+        except httpx.TimeoutException as e:
+            raise GeminiError(f"Timeout after {timeout}s: {e}", kind="timeout")
+        except httpx.HTTPError as e:
+            raise GeminiError(f"Network error: {e}", kind="network")
+
+        status = resp.status_code
+        body = resp.text or ""
+
+        if status == 404:
+            # Model not found — remember and try the next fallback model.
+            last_model_error = GeminiError(f"Model '{model}' not found", kind="model")
+            continue
+        if status == 400 and ("API_KEY_INVALID" in body or "API key not valid" in body):
+            raise GeminiError("API key not valid", kind="invalid_key")
+        if status == 403 or "SERVICE_DISABLED" in body or "PERMISSION_DENIED" in body:
+            raise GeminiError(f"Permission denied: {body[:200]}", kind="permission")
+        if status == 429 or "RESOURCE_EXHAUSTED" in body:
+            raise GeminiError("Quota/rate limit exhausted", kind="quota")
+        if status != 200:
+            raise GeminiError(f"HTTP {status}: {body[:200]}", kind="http")
+
+        try:
+            data = resp.json()
+        except (ValueError, TypeError) as e:
+            raise GeminiError(f"Invalid JSON from Gemini: {e}", kind="http")
+
+        block = (data.get("promptFeedback") or {}).get("blockReason")
+        if block:
+            raise GeminiError(f"Blocked: {block}", kind="blocked")
+
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise GeminiError(f"No candidates: {str(data)[:200]}", kind="empty")
+
+        parts_out = (candidates[0].get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts_out).strip()
+        if not text:
+            finish = candidates[0].get("finishReason", "UNKNOWN")
+            raise GeminiError(f"Empty text (finishReason: {finish})", kind="empty")
+        return text
+
+    # Every model returned 404.
+    raise last_model_error or GeminiError("No Gemini model available", kind="model")

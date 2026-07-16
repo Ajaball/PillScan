@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
@@ -31,6 +32,7 @@ async def list_reminders(
     """List all reminders for the current user."""
     result = await db.execute(
         select(Reminder)
+        .options(selectinload(Reminder.medication).selectinload(Medication.drug))
         .where(Reminder.user_id == user.id)
         .order_by(Reminder.reminder_time)
     )
@@ -68,9 +70,11 @@ async def create_reminder(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new medication reminder."""
-    # Verify medication belongs to user
+    # Verify medication belongs to user (eager-load drug for the response name)
     result = await db.execute(
-        select(Medication).where(
+        select(Medication)
+        .options(selectinload(Medication.drug))
+        .where(
             Medication.id == request.medication_id,
             Medication.user_id == user.id,
         )
@@ -139,7 +143,14 @@ async def update_reminder(
         setattr(reminder, field, value)
 
     await db.flush()
-    await db.refresh(reminder)
+
+    # Re-load with medication + drug eager-loaded (async lazy access would 500).
+    reloaded = await db.execute(
+        select(Reminder)
+        .options(selectinload(Reminder.medication).selectinload(Medication.drug))
+        .where(Reminder.id == reminder_id)
+    )
+    reminder = reloaded.scalar_one()
 
     med_name = None
     if reminder.medication:
