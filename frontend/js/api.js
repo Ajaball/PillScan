@@ -21,6 +21,9 @@ class ApiClient {
     this.baseUrl = API_BASE;
     this.isRefreshing = false;
     this.refreshQueue = [];
+    // Max time to wait before aborting a request (ms). Covers the backend's 60s
+    // LLM timeout plus cold-start/network overhead so real AI calls still finish.
+    this.defaultTimeout = 90000;
   }
 
   /** Build full URL */
@@ -56,6 +59,14 @@ class ApiClient {
       config.body = isFormData ? body : JSON.stringify(body);
     }
 
+    // Guard every request with a timeout so a stuck/cold-start backend can never
+    // freeze the UI forever. AI calls (scan/summary/assistant) can legitimately
+    // take up to the backend's 60s LLM timeout, so allow generous headroom.
+    const timeoutMs = options.timeout || this.defaultTimeout;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    config.signal = controller.signal;
+
     try {
       const response = await fetch(this.url(path), config);
 
@@ -68,23 +79,31 @@ class ApiClient {
         // Refresh failed — redirect to login
         storage.clearTokens();
         window.dispatchEvent(new CustomEvent('auth:logout'));
-        throw new ApiError('Session expired', 401);
+        throw new ApiError('انتهت الجلسة، الرجاء تسجيل الدخول مجددًا', 401);
       }
 
       // Parse response
       const data = await this.parseResponse(response);
 
       if (!response.ok) {
-        throw new ApiError(data.detail || data.message || 'Request failed', response.status, data);
+        const detail = (data && (data.detail || data.message)) || 'فشل الطلب، حاول مرة أخرى';
+        throw new ApiError(detail, response.status, data);
       }
 
       return data;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new ApiError('No internet connection', 0);
+      // Request aborted by our timeout.
+      if (error.name === 'AbortError') {
+        throw new ApiError('استغرق الطلب وقتًا أطول من المعتاد. حاول مرة أخرى.', 0);
       }
-      throw new ApiError(error.message || 'Unknown error', 0);
+      // Network / DNS / offline.
+      if (error.name === 'TypeError') {
+        throw new ApiError('تعذّر الاتصال بالخادم. تحقّق من اتصالك بالإنترنت.', 0);
+      }
+      throw new ApiError(error.message || 'حدث خطأ غير متوقع', 0);
+    } finally {
+      clearTimeout(timer);
     }
   }
 

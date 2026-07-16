@@ -16,8 +16,6 @@ import json
 import re
 from typing import Any, Optional
 
-import httpx
-
 from app.config import get_settings
 from app.services import llm_keys
 
@@ -58,64 +56,18 @@ def is_configured(user: Optional[Any] = None) -> bool:
     return bool(llm_keys.resolve_gemini_keys(user))
 
 
-def _generation_config(model: str, temperature: float) -> dict:
-    """
-    Build the Gemini generationConfig — kept identical in shape to the working
-    pill-ID / leaflet services (which this app already relies on). Notably it
-    does NOT set ``responseMimeType``: that field is rejected by the model this
-    app uses and made every key fail. JSON is requested via the prompt instead
-    and parsed defensively below. Thinking-capable models get thinking disabled
-    so the token budget produces the actual answer rather than internal reasoning.
-    """
-    config = {"temperature": temperature, "maxOutputTokens": 8192}
-    if llm_keys.is_thinking_capable(model):
-        config["thinkingConfig"] = {"thinkingBudget": 0}
-    return config
-
-
 async def _ask_gemini(drug_name: str, api_key: str, model: str) -> str:
-    """Call Gemini generateContent (text only) and return the raw text."""
-    url = (
-        f"{settings.GEMINI_API_BASE}/models/{model}:generateContent"
-        f"?key={api_key}"
-    )
-    config = _generation_config(model, temperature=0.2)
+    """
+    Call Gemini (text only) and return the raw JSON text.
 
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": SYSTEM_PROMPT_AR},
-                    {"text": f"اسم الدواء: {drug_name}"},
-                ]
-            }
-        ],
-        "generationConfig": config,
-    }
-
-    async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, json=payload)
-
-    if response.status_code != 200:
-        raise AssistantServiceError(
-            f"Gemini API error {response.status_code}: {response.text[:300]}"
-        )
-
-    data = response.json()
-    block = (data.get("promptFeedback") or {}).get("blockReason")
-    if block:
-        raise AssistantServiceError(f"Gemini blocked the request ({block})")
-
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise AssistantServiceError(f"Gemini returned no candidates: {str(data)[:200]}")
-
-    parts = (candidates[0].get("content") or {}).get("parts") or []
-    text = "".join(part.get("text", "") for part in parts).strip()
-    if not text:
-        finish = candidates[0].get("finishReason", "UNKNOWN")
-        raise AssistantServiceError(f"Gemini returned empty text (finishReason: {finish})")
-    return text
+    Model fallback, error classification, timeouts and network errors are
+    handled centrally in ``llm_keys.gemini_generate``.
+    """
+    parts = [
+        {"text": SYSTEM_PROMPT_AR},
+        {"text": f"اسم الدواء: {drug_name}"},
+    ]
+    return await llm_keys.gemini_generate(parts, api_key, temperature=0.2)
 
 
 def _parse_json(text: str) -> Optional[dict]:
@@ -199,9 +151,27 @@ async def get_drug_info(drug_name: str, user: Optional[Any] = None, db: Any = No
     if not keys:
         return {**base, "is_configured": False, "warnings": [NOT_CONFIGURED_MESSAGE_AR]}
 
-    raw = await llm_keys.call_with_failover(
-        keys, lambda key: _ask_gemini(drug_name, key, model)
-    )
+    # Call Gemini with automatic key failover. A classified GeminiError (invalid
+    # key, quota, timeout, network...) is turned into a clear Arabic message
+    # rather than a generic 502, so the user knows exactly what to fix.
+    try:
+        raw = await llm_keys.call_with_failover(
+            keys, lambda key: _ask_gemini(drug_name, key, model)
+        )
+    except llm_keys.GeminiError as e:
+        return {
+            **base,
+            "is_configured": True,
+            "recognized": False,
+            "warnings": [e.message_ar],
+        }
+    except Exception as e:  # noqa: BLE001 - never leak a 500 to the client
+        return {
+            **base,
+            "is_configured": True,
+            "recognized": False,
+            "warnings": ["تعذّر جلب معلومات الدواء. حاول مرة أخرى."],
+        }
 
     parsed = _parse_json(raw)
     if parsed is None:

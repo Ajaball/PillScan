@@ -19,8 +19,6 @@ can still be demonstrated offline without fabricating medical content.
 import base64
 from typing import Any, Optional
 
-import httpx
-
 from app.config import get_settings
 from app.services import llm_keys
 
@@ -81,63 +79,22 @@ def _guess_ext_mime(content_type: Optional[str]) -> str:
     return "image/jpeg"
 
 
-def _gemini_generation_config(model: str, temperature: float) -> dict:
-    """
-    Build the Gemini generationConfig.
-
-    Thinking-capable models "think" by default, spending the output token
-    budget on internal reasoning and sometimes returning empty text. Give a
-    high budget and disable thinking so the tokens produce the actual
-    summary. (thinkingConfig is only valid on thinking-capable models.)
-    """
-    config = {"temperature": temperature, "maxOutputTokens": 8192}
-    if llm_keys.is_thinking_capable(model):
-        config["thinkingConfig"] = {"thinkingBudget": 0}
-    return config
-
-
 async def _summarize_with_gemini(image_b64: str, mime_type: str, api_key: str, model: str) -> str:
-    """Call Google Gemini's generateContent endpoint and return the text."""
-    url = (
-        f"{settings.GEMINI_API_BASE}/models/{model}:generateContent"
-        f"?key={api_key}"
-    )
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": SUMMARY_PROMPT_AR},
-                    {"inline_data": {"mime_type": mime_type, "data": image_b64}},
-                ]
-            }
-        ],
-        "generationConfig": _gemini_generation_config(model, temperature=0.2),
-    }
+    """
+    Call Gemini and return the Arabic summary text.
 
-    async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, json=payload)
-
-    if response.status_code != 200:
-        raise LeafletServiceError(
-            f"Gemini API error {response.status_code}: {response.text[:300]}"
-        )
-
-    data = response.json()
-
-    block = (data.get("promptFeedback") or {}).get("blockReason")
-    if block:
-        raise LeafletServiceError(f"Gemini blocked the request (promptFeedback: {block})")
-
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise LeafletServiceError(f"Gemini returned no candidates: {str(data)[:300]}")
-
-    parts = (candidates[0].get("content") or {}).get("parts") or []
-    text = "".join(part.get("text", "") for part in parts).strip()
-    if not text:
-        finish = candidates[0].get("finishReason", "UNKNOWN")
-        raise LeafletServiceError(f"Gemini returned an empty summary (finishReason: {finish})")
-    return text
+    The heavy lifting (model fallback, error classification, timeouts, network
+    errors) lives in ``llm_keys.gemini_generate``; the ``model`` argument is kept
+    for backward compatibility but model selection is handled centrally there.
+    """
+    parts = [
+        {"text": SUMMARY_PROMPT_AR},
+        {"inline_data": {"mime_type": mime_type, "data": image_b64}},
+    ]
+    try:
+        return await llm_keys.gemini_generate(parts, api_key, temperature=0.2)
+    except llm_keys.GeminiError as e:
+        raise LeafletServiceError(str(e))
 
 
 def is_configured(user: Optional[Any] = None) -> bool:

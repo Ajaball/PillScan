@@ -134,6 +134,7 @@ class TestLeafletServiceUnit:
 
         class FakeResponse:
             status_code = 200
+            text = ""
 
             def json(self):
                 return {
@@ -155,7 +156,8 @@ class TestLeafletServiceUnit:
             async def post(self, *a, **k):
                 return FakeResponse()
 
-        monkeypatch.setattr(leaflet_service.httpx, "AsyncClient", FakeClient)
+        # The HTTP call now lives in the shared llm_keys.gemini_generate helper.
+        monkeypatch.setattr(leaflet_service.llm_keys.httpx, "AsyncClient", FakeClient)
 
         result = await leaflet_service.summarize_leaflet(FAKE_IMAGE, "image/png")
         assert result["is_configured"] is True
