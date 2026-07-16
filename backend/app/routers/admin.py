@@ -12,10 +12,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.user import User
+from app.models.scan_history import ScanHistory
+from app.models.medication import Medication
+from app.models.reminder import Reminder
+from app.models.user_query import UserQuery
 from app.schemas.user import AdminUserResponse, UpdateUserStatusRequest
 from app.services.auth_service import get_current_admin
 from app.config import get_settings
@@ -42,6 +46,31 @@ async def db_status(admin: User = Depends(get_current_admin)):
         "engine": "sqlite" if is_sqlite else "postgres",
         "persistent": not is_sqlite,
         "host": host,
+    }
+
+
+@router.get("/stats")
+async def stats(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    [Admin] System-wide activity counters for the dashboard overview:
+    total scans, active medications, active reminders, and assistant
+    lookups. Counts only — no per-user data is exposed.
+    """
+    async def count(model, *conditions) -> int:
+        query = select(func.count()).select_from(model)
+        for cond in conditions:
+            query = query.where(cond)
+        result = await db.execute(query)
+        return int(result.scalar_one() or 0)
+
+    return {
+        "scans": await count(ScanHistory),
+        "medications": await count(Medication, Medication.is_active.is_(True)),
+        "reminders": await count(Reminder, Reminder.is_active.is_(True)),
+        "queries": await count(UserQuery),
     }
 
 

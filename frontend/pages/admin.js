@@ -16,7 +16,7 @@ const STATUS_BADGE = {
 };
 
 // Bump this when the admin panel changes so deploys are easy to verify at a glance.
-const PANEL_VERSION = 'v6';
+const PANEL_VERSION = 'v7';
 
 const AdminPage = {
   render() {
@@ -36,6 +36,15 @@ const AdminPage = {
         <div class="section">
           <h3 class="font-semibold mb-3">${i18n.t('admin_stats_title')}</h3>
           <div id="admin-stats" class="grid grid-2 gap-3">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
+
+        <!-- App activity stats -->
+        <div class="section mt-6">
+          <h3 class="font-semibold mb-3">${i18n.t('admin_activity_title')}</h3>
+          <div id="admin-activity" class="grid grid-2 gap-3">
             <div class="skeleton skeleton-card"></div>
             <div class="skeleton skeleton-card"></div>
           </div>
@@ -73,7 +82,12 @@ const AdminPage = {
   },
 
   async reload() {
-    await Promise.all([this.loadDbStatus(), this.loadPending(), this.loadAllUsers()]);
+    await Promise.all([
+      this.loadDbStatus(),
+      this.loadActivityStats(),
+      this.loadPending(),
+      this.loadAllUsers(),
+    ]);
   },
 
   async loadDbStatus() {
@@ -201,6 +215,32 @@ const AdminPage = {
         <div class="stat-number">${c.value}</div>
         <div class="stat-label">${i18n.t(c.label)}</div>
       </div>`).join('');
+  },
+
+  async loadActivityStats() {
+    const el = document.getElementById('admin-activity');
+    if (!el) return;
+
+    const cards = [
+      { icon: '📷', label: 'admin_stat_scans', key: 'scans' },
+      { icon: '💊', label: 'admin_stat_medications', key: 'medications' },
+      { icon: '⏰', label: 'admin_stat_reminders', key: 'reminders' },
+      { icon: '💬', label: 'admin_stat_queries', key: 'queries' },
+    ];
+
+    try {
+      const s = await api.getAdminStats();
+      el.className = 'grid grid-2 gap-3';
+      el.innerHTML = cards.map(c => `
+        <div class="stat-box stat-total">
+          <div class="text-xl mb-1">${c.icon}</div>
+          <div class="stat-number">${Number(s?.[c.key] ?? 0)}</div>
+          <div class="stat-label">${i18n.t(c.label)}</div>
+        </div>`).join('');
+    } catch (err) {
+      el.className = '';
+      el.innerHTML = `<p class="text-center text-secondary text-sm">${err.message || i18n.t('error_generic')}</p>`;
+    }
   },
 
   async changeStatus(userId, status) {
