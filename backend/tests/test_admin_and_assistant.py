@@ -172,10 +172,14 @@ class TestAdminAccessControl:
             UserQuery(user_id=admin_id, query_text="بنادول", recognized=True),
         ])
         await db_session.flush()
-        db_session.add(
+        # One active + one inactive reminder so the count truly proves the
+        # is_active filter (a count of 1 fails if the predicate is dropped).
+        db_session.add_all([
             Reminder(user_id=admin_id, medication_id=med_active.id,
-                     reminder_time=time(8, 0), is_active=True)
-        )
+                     reminder_time=time(8, 0), is_active=True),
+            Reminder(user_id=admin_id, medication_id=med_active.id,
+                     reminder_time=time(20, 0), is_active=False),
+        ])
         await db_session.commit()
 
         response = await client.get(
@@ -184,7 +188,7 @@ class TestAdminAccessControl:
         data = response.json()
         assert data["scans"] == 2
         assert data["medications"] == 1  # only the active medication is counted
-        assert data["reminders"] == 1
+        assert data["reminders"] == 1  # only the active reminder is counted
         assert data["queries"] == 1
 
 
