@@ -99,15 +99,6 @@ const DrugAssistantPage = {
     ));
   },
 
-  textCard(title, value) {
-    if (!value) return '';
-    return `
-      <div class="card mb-3 animate-fade-in-up">
-        <h4 class="font-semibold text-sm mb-1">${title}</h4>
-        <p class="text-sm text-secondary" style="white-space:pre-line;">${this.esc(value)}</p>
-      </div>`;
-  },
-
   listCard(title, items) {
     if (!items || !items.length) return '';
     return `
@@ -138,11 +129,13 @@ const DrugAssistantPage = {
         <div class="empty-state mt-6">
           <div class="text-4xl mb-2">🤔</div>
           <p class="text-secondary text-sm">${i18n.t('assistant_not_recognized')}</p>
-          ${(info.warnings && info.warnings.length) ? `<p class="text-xs text-tertiary mt-2">${this.esc(info.warnings[0])}</p>` : ''}
+          ${info.message ? `<p class="text-xs text-tertiary mt-2">${this.esc(info.message)}</p>` : ''}
         </div>`;
       return;
     }
 
+    // Fixed three-field layout, always in this order:
+    // 1) اسم الدواء  2) الأعراض الجانبية  3) مواعيد الاستخدام
     container.innerHTML = `
       <div class="card card-glow mb-3 animate-fade-in-up">
         <div class="flex items-center gap-3">
@@ -150,13 +143,8 @@ const DrugAssistantPage = {
           <h3 class="font-bold text-base">${this.esc(info.name)}</h3>
         </div>
       </div>
-      ${this.textCard(i18n.t('assistant_uses'), info.uses)}
-      ${this.textCard(i18n.t('dosage'), info.dosage)}
-      ${this.listCard(i18n.t('side_effects'), info.sideEffects)}
-      ${this.listCard(i18n.t('contraindications'), info.contraindications)}
-      ${this.listCard(i18n.t('assistant_interactions'), info.interactions)}
-      ${this.textCard(i18n.t('storage'), info.storage)}
-      ${this.listCard(i18n.t('assistant_warnings'), info.warnings)}
+      ${this.listCard(i18n.t('assistant_side_effects'), info.sideEffects)}
+      ${this.listCard(i18n.t('assistant_usage_times'), info.usageTimes)}
     `;
   },
 

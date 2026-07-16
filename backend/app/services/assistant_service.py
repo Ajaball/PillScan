@@ -26,17 +26,20 @@ class AssistantServiceError(Exception):
     """Raised when the assistant LLM call fails on every configured key."""
 
 
-# System prompt — Arabic, JSON-only, with strict safety rules. Kept verbatim as
-# the product spec requires.
+# System prompt — Arabic, JSON-only, restricted to EXACTLY three fields in a
+# fixed order: name, sideEffects, usageTimes (+ recognized). No other fields.
 SYSTEM_PROMPT_AR = (
-    "أنت مساعد دوائي متخصص تُجيب بالعربية. قدّم معلومات دوائية عامة وموثوقة عن "
-    "الدواء المطلوب بصيغة JSON بالحقول: name، uses (دواعي الاستعمال)، dosage "
-    "(الجرعة الاعتيادية)، sideEffects (مصفوفة)، contraindications (مصفوفة)، "
-    "interactions (مصفوفة تفاعلات دوائية مهمة)، storage (طريقة التخزين)، warnings "
-    "(مصفوفة تحذيرات)، recognized (true/false). قواعد صارمة: لا تقدّم تشخيصاً ولا "
+    "أنت مساعد دوائي تُجيب بالعربية. قدّم معلومات دوائية عامة وموثوقة عن الدواء "
+    "المطلوب بصيغة JSON فقط، وبهذه الحقول حصراً وبهذا الترتيب:\n"
+    "1) name: اسم الدواء (نص).\n"
+    "2) sideEffects: الأعراض الجانبية (مصفوفة نصية).\n"
+    "3) usageTimes: مواعيد/أوقات الاستخدام المعتادة (مصفوفة نصية، مثل: صباحًا، "
+    "مساءً، بعد الأكل).\n"
+    "4) recognized: true أو false.\n"
+    "قواعد صارمة: لا تُضِف أي حقول أخرى غير الأربعة أعلاه؛ لا تقدّم تشخيصاً ولا "
     "تصف علاجاً لحالة بعينها؛ إن لم تتعرّف على الدواء أو لم تكن متأكداً اجعل "
-    "recognized=false ووضّح ذلك بدل اختلاق معلومات؛ لا تشجّع على إساءة الاستخدام "
-    "أو الجرعات الزائدة. أعد JSON فقط دون أي نص إضافي."
+    "recognized=false ولا تختلق معلومات؛ لا تشجّع على إساءة الاستخدام أو الجرعات "
+    "الزائدة. أعد JSON فقط دون أي نص إضافي ودون أي حقول أخرى."
 )
 
 # Shown as a persistent banner above the result (added by the API, not the model).
@@ -103,84 +106,74 @@ def _as_list(value: Any) -> list:
 
 
 def _normalize(parsed: dict, drug_name: str, model: str) -> dict:
-    """Shape the parsed model output into the response contract."""
+    """
+    Shape the parsed model output into the fixed three-field contract. Missing
+    or wrongly-typed fields are coerced safely so the response is ALWAYS valid
+    and in order: name, sideEffects, usageTimes.
+    """
+    recognized = bool(parsed.get("recognized", False))
+    side_effects = _as_list(parsed.get("sideEffects"))
+    usage_times = _as_list(parsed.get("usageTimes"))
+
+    # An "incomplete" recognized reply (no side effects AND no usage times) is
+    # treated as not-confidently-recognised rather than shown half-empty.
+    if recognized and not side_effects and not usage_times:
+        recognized = False
+
     return {
         "name": str(parsed.get("name") or drug_name).strip(),
-        "uses": str(parsed.get("uses") or "").strip(),
-        "dosage": str(parsed.get("dosage") or "").strip(),
-        "sideEffects": _as_list(parsed.get("sideEffects")),
-        "contraindications": _as_list(parsed.get("contraindications")),
-        "interactions": _as_list(parsed.get("interactions")),
-        "storage": str(parsed.get("storage") or "").strip(),
-        "warnings": _as_list(parsed.get("warnings")),
-        "recognized": bool(parsed.get("recognized", False)),
+        "sideEffects": side_effects,
+        "usageTimes": usage_times,
+        "recognized": recognized,
         "provider": "gemini",
         "model": model,
         "is_configured": True,
         "disclaimer_ar": DISCLAIMER_AR,
+        "message": "" if recognized else "لم يتم التعرف على هذا الدواء بشكل مؤكد.",
     }
 
 
 async def get_drug_info(drug_name: str, user: Optional[Any] = None, db: Any = None) -> dict:
     """
-    Look up general drug information for ``drug_name`` via Gemini.
+    Look up general drug information for ``drug_name`` via Gemini and return it in
+    the fixed three-field shape (name, sideEffects, usageTimes).
 
     Uses the requesting user's own keys, then admin-shared keys (when ``db`` is
-    provided), then server env keys. Returns a dict matching ``DrugInfoResponse``.
-    Never raises for the "not configured" or "unparseable" cases — it returns
-    recognized=False with a clear message instead. Raises
-    ``AssistantServiceError`` only if every configured key errored.
+    provided), then server env keys. Never raises for the "not configured",
+    "provider error", or "unparseable" cases — it returns recognized=False with a
+    clear ``message`` instead, so the endpoint always degrades gracefully.
     """
     model = settings.GEMINI_MODEL
     base = {
         "name": drug_name,
-        "uses": "",
-        "dosage": "",
         "sideEffects": [],
-        "contraindications": [],
-        "interactions": [],
-        "storage": "",
-        "warnings": [],
+        "usageTimes": [],
         "recognized": False,
         "provider": "gemini",
         "model": model,
         "disclaimer_ar": DISCLAIMER_AR,
+        "message": "",
     }
 
     keys = await llm_keys.resolve_gemini_keys_async(user, db)
     if not keys:
-        return {**base, "is_configured": False, "warnings": [NOT_CONFIGURED_MESSAGE_AR]}
+        return {**base, "is_configured": False, "message": NOT_CONFIGURED_MESSAGE_AR}
 
     # Call Gemini with automatic key failover. A classified GeminiError (invalid
-    # key, quota, timeout, network...) is turned into a clear Arabic message
-    # rather than a generic 502, so the user knows exactly what to fix.
+    # key, quota, timeout, network...) becomes a clear Arabic message rather than
+    # a generic 502, so the user knows exactly what to fix.
     try:
         raw = await llm_keys.call_with_failover(
             keys, lambda key: _ask_gemini(drug_name, key, model)
         )
     except llm_keys.GeminiError as e:
-        return {
-            **base,
-            "is_configured": True,
-            "recognized": False,
-            "warnings": [e.message_ar],
-        }
-    except Exception as e:  # noqa: BLE001 - never leak a 500 to the client
-        return {
-            **base,
-            "is_configured": True,
-            "recognized": False,
-            "warnings": ["تعذّر جلب معلومات الدواء. حاول مرة أخرى."],
-        }
+        return {**base, "is_configured": True, "message": e.message_ar}
+    except Exception:  # noqa: BLE001 - never leak a 500 to the client
+        return {**base, "is_configured": True, "message": "تعذّر جلب معلومات الدواء. حاول مرة أخرى."}
 
     parsed = _parse_json(raw)
     if parsed is None:
-        # Network/API succeeded but the reply wasn't valid JSON — clear fallback.
-        return {
-            **base,
-            "is_configured": True,
-            "recognized": False,
-            "warnings": ["تعذّر تحليل رد المساعد. حاول مرة أخرى."],
-        }
+        # Provider succeeded but the reply wasn't valid JSON — clear fallback.
+        return {**base, "is_configured": True, "message": "تعذّر تحليل رد المساعد. حاول مرة أخرى."}
 
     return _normalize(parsed, drug_name, model)

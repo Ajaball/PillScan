@@ -284,9 +284,8 @@ const translations = {
     assistant_disclaimer: 'هذه المعلومات للتوعية فقط ولا تغني عن استشارة الطبيب أو الصيدلي المختص.',
     assistant_not_recognized: 'لم يتم التعرف على هذا الدواء بشكل مؤكد',
     assistant_not_configured: 'خدمة المساعد غير مفعّلة بعد. أضف مفتاح Gemini من إعدادات الذكاء الاصطناعي.',
-    assistant_uses: 'دواعي الاستعمال',
-    assistant_interactions: 'تفاعلات دوائية مهمة',
-    assistant_warnings: 'تحذيرات',
+    assistant_side_effects: 'الأعراض الجانبية',
+    assistant_usage_times: 'مواعيد الاستخدام',
     assistant_ask_about: 'اسأل المساعد الدوائي',
     ai_test_keys: 'اختبار المفاتيح',
     ai_key_ok: 'يعمل ✓',
@@ -589,9 +588,8 @@ const translations = {
     assistant_disclaimer: 'This information is for awareness only and is not a substitute for consulting a doctor or pharmacist.',
     assistant_not_recognized: 'This drug could not be confidently recognized',
     assistant_not_configured: 'The assistant is not enabled yet. Add a Gemini key in AI settings.',
-    assistant_uses: 'Uses',
-    assistant_interactions: 'Important Drug Interactions',
-    assistant_warnings: 'Warnings',
+    assistant_side_effects: 'Side Effects',
+    assistant_usage_times: 'Usage Times',
     assistant_ask_about: 'Ask the Drug Assistant',
 
     // ── Offline ────────────────────────────────────────────────────

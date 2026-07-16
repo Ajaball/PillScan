@@ -7,8 +7,11 @@ approves → can log in), server-side admin role enforcement, and the assistant
 endpoint's approved-user guard.
 """
 
+import json
 import pytest
 from httpx import AsyncClient
+
+from app.services import assistant_service
 
 
 class TestAdminApprovalFlow:
@@ -142,3 +145,46 @@ class TestAssistantGuard:
         data = response.json()
         assert data["is_configured"] is False
         assert data["recognized"] is False
+        # Fixed three-field contract is always present, in order.
+        assert list(data.keys())[:3] == ["name", "sideEffects", "usageTimes"]
+        assert data["sideEffects"] == []
+        assert data["usageTimes"] == []
+        assert data["message"]  # a setup hint is provided
+
+    @pytest.mark.asyncio
+    async def test_assistant_returns_three_fields_in_order(
+        self, client: AsyncClient, test_user: dict, monkeypatch
+    ):
+        """With a (mocked) model reply, the endpoint returns exactly the 3 fields."""
+        # Give the user a key so resolution is non-empty.
+        await client.put(
+            "/api/v1/users/me/ai-settings",
+            headers=test_user["auth_header"],
+            json={"gemini_api_key": "TEST-KEY"},
+        )
+
+        async def fake_ask(drug_name, api_key, model):
+            return json.dumps({
+                "name": "بنادول",
+                "sideEffects": ["غثيان", "طفح جلدي نادر"],
+                "usageTimes": ["صباحًا", "مساءً بعد الأكل"],
+                "recognized": True,
+            })
+
+        monkeypatch.setattr(assistant_service, "_ask_gemini", fake_ask)
+
+        r = await client.post(
+            "/api/v1/assistant/drug-info",
+            headers=test_user["auth_header"],
+            json={"name": "Panadol"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["recognized"] is True
+        assert list(data.keys())[:3] == ["name", "sideEffects", "usageTimes"]
+        assert data["name"] == "بنادول"
+        assert data["sideEffects"] == ["غثيان", "طفح جلدي نادر"]
+        assert data["usageTimes"] == ["صباحًا", "مساءً بعد الأكل"]
+        # Removed fields must not be present.
+        assert "dosage" not in data
+        assert "contraindications" not in data
