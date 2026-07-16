@@ -51,7 +51,7 @@ const RemindersPage = {
             </div>
             <div class="flex-1">
               <h4 class="font-semibold text-sm">${r.medication_name || r.notification_title || '-'}</h4>
-              <p class="text-xs text-secondary">${(r.days_of_week || []).map(d => i18n.t('day_' + d.toLowerCase().slice(0,3))).join(', ') || i18n.t('frequency_daily')}</p>
+              <p class="text-xs text-secondary">${this.formatDays(r.days_of_week)}</p>
             </div>
             <label class="toggle">
               <input type="checkbox" ${r.is_active ? 'checked' : ''} data-id="${r.id}" class="reminder-toggle">
@@ -72,6 +72,21 @@ const RemindersPage = {
     } catch {
       container.innerHTML = `<div class="empty-state"><p class="text-secondary">${i18n.t('error_generic')}</p></div>`;
     }
+  },
+
+  /**
+   * Format days_of_week for display. The backend stores integer indices
+   * (0=Mon … 6=Sun); older data may hold day strings. Both are handled safely
+   * so a number never hits String.prototype methods (which threw before).
+   */
+  formatDays(days) {
+    const DOW = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    if (!Array.isArray(days) || days.length === 0) return i18n.t('frequency_daily');
+    const labels = days.map(d => {
+      const key = (typeof d === 'number') ? DOW[d] : String(d).toLowerCase().slice(0, 3);
+      return key ? i18n.t('day_' + key) : '';
+    }).filter(Boolean);
+    return labels.length ? labels.join('، ') : i18n.t('frequency_daily');
   },
 
   unmount() {}
