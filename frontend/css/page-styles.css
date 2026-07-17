@@ -782,6 +782,30 @@
   white-space: nowrap;
 }
 
+/* Assistant queries — expandable per-user drill-down */
+.query-user-row { cursor: pointer; }
+.query-chevron {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+.query-user.is-expanded .query-chevron { transform: rotate(180deg); }
+.query-detail {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-3);
+  padding-top: var(--space-1);
+}
+.query-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.query-item {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-active);
+  border-radius: var(--radius-md);
+}
+
 .stat-number {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);

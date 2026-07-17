@@ -288,6 +288,11 @@ class ApiClient {
     return this.get('/admin/query-stats');
   }
 
+  /** The individual drug-assistant queries made by a single user (newest first) */
+  getUserQueries(userId) {
+    return this.get(`/admin/users/${userId}/queries`);
+  }
+
   // ── Scan Endpoints ────────────────────────────────────────────
 
   async scanPill(imageFile) {
