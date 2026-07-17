@@ -203,6 +203,61 @@ class TestAdminAccessControl:
         assert sum(b["count"] for b in data["scan_trend"]) == 2
         assert data["scan_trend"][-1]["count"] == 2
 
+    @pytest.mark.asyncio
+    async def test_query_stats_admin_only(self, client: AsyncClient, test_user: dict):
+        response = await client.get(
+            "/api/v1/admin/query-stats", headers=test_user["auth_header"],
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_query_stats_empty(self, client: AsyncClient, admin_user: dict):
+        """With no queries, the per-user breakdown is an empty list, not an error."""
+        response = await client.get(
+            "/api/v1/admin/query-stats", headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        assert response.json()["users"] == []
+
+    @pytest.mark.asyncio
+    async def test_query_stats_per_user_breakdown(
+        self, client: AsyncClient, admin_user: dict, test_user: dict, db_session
+    ):
+        """Per-user counts, recognized sub-count, and most-active-first ordering."""
+        import uuid
+        from app.models.user_query import UserQuery
+
+        admin_id = uuid.UUID(admin_user["id"])
+        user_id = uuid.UUID(test_user["id"])
+        db_session.add_all([
+            UserQuery(user_id=admin_id, query_text="بنادول", recognized=True),
+            UserQuery(user_id=admin_id, query_text="اسبرين", recognized=True),
+            UserQuery(user_id=admin_id, query_text="xyz", recognized=False),
+            UserQuery(user_id=user_id, query_text="فيتامين", recognized=True),
+        ])
+        await db_session.commit()
+
+        response = await client.get(
+            "/api/v1/admin/query-stats", headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        users = response.json()["users"]
+        # Only users with queries appear (both admin and the regular user).
+        assert len(users) == 2
+        # Ordered by total desc: admin (3 queries) before the regular user (1).
+        assert users[0]["user_id"] == str(admin_id)
+        assert users[0]["total"] == 3
+        # recognized sub-count proves the case() sum works (2 of 3 recognized),
+        # not just a copy of total — a false green would show 3 here.
+        assert users[0]["recognized"] == 2
+        assert users[0]["last_at"] is not None
+        assert set(users[0].keys()) == {
+            "user_id", "full_name", "email", "total", "recognized", "last_at",
+        }
+        assert users[1]["user_id"] == str(user_id)
+        assert users[1]["total"] == 1
+        assert users[1]["recognized"] == 1
+
 
 class TestAssistantGuard:
     @pytest.mark.asyncio

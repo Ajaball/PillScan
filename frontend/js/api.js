@@ -283,6 +283,11 @@ class ApiClient {
     return this.get('/admin/stats');
   }
 
+  /** Per-user breakdown of drug-assistant queries (most active users first) */
+  getQueryStatsByUser() {
+    return this.get('/admin/query-stats');
+  }
+
   // ── Scan Endpoints ────────────────────────────────────────────
 
   async scanPill(imageFile) {
