@@ -276,11 +276,18 @@ class TestAdminAccessControl:
 
         user_id = uuid.UUID(test_user["id"])
         admin_id = uuid.UUID(admin_user["id"])
+        # Explicit, distinct timestamps so the newest-first ordering is genuinely
+        # testable. (SQLite's func.now() has 1s resolution, so two rows in one
+        # transaction would otherwise share a timestamp and make the ordering
+        # assertion vacuous — passing even if the endpoint sorted ascending.)
+        from datetime import datetime
+        older = datetime(2026, 1, 1, 10, 0, 0)
+        newer = datetime(2026, 1, 1, 10, 5, 0)
         db_session.add_all([
-            UserQuery(user_id=user_id, query_text="بنادول",
-                      recognized=True, result={"name": "باراسيتامول"}),
-            UserQuery(user_id=user_id, query_text="زبالة",
-                      recognized=False, result=None),
+            UserQuery(user_id=user_id, query_text="بنادول", recognized=True,
+                      result={"name": "باراسيتامول"}, created_at=older),
+            UserQuery(user_id=user_id, query_text="زبالة", recognized=False,
+                      result=None, created_at=newer),
             # Belongs to a different user — must NOT leak into this response.
             UserQuery(user_id=admin_id, query_text="اسبرين", recognized=True),
         ])
@@ -296,10 +303,9 @@ class TestAdminAccessControl:
         assert len(queries) == 2
         texts = {q["query_text"] for q in queries}
         assert texts == {"بنادول", "زبالة"}
-        # Newest first: the two were added in order, so the last-inserted ("زبالة")
-        # has the newer/equal timestamp and must not sort before an older one.
-        dates = [q["created_at"] for q in queries]
-        assert dates == sorted(dates, reverse=True)
+        # Newest first: "زبالة" (newer) must come before "بنادول" (older).
+        # Distinct timestamps make this fail if the endpoint sorts ascending.
+        assert [q["query_text"] for q in queries] == ["زبالة", "بنادول"]
         # Shape + recognized_name resolution.
         recognized = next(q for q in queries if q["query_text"] == "بنادول")
         assert recognized["recognized"] is True
