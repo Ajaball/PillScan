@@ -9,6 +9,7 @@ Every endpoint depends on ``get_current_admin`` so access is enforced on the
 
 from uuid import UUID
 from typing import Optional
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,11 +67,33 @@ async def stats(
         result = await db.execute(query)
         return int(result.scalar_one() or 0)
 
+    # ── 7-day scan trend ──────────────────────────────────────────────
+    # Bucketing is done in Python (not SQL date functions) so it behaves
+    # identically on SQLite (tests) and Postgres (prod). Buckets are keyed
+    # by UTC date; the SQL filter is a generous lower bound and correctness
+    # comes from the bucket dict, so any extra/older row is simply ignored.
+    today = datetime.utcnow().date()
+    trend_buckets: dict[str, int] = {
+        (today - timedelta(days=6 - i)).isoformat(): 0 for i in range(7)
+    }
+    lower_bound = datetime(today.year, today.month, today.day) - timedelta(days=7)
+    scan_rows = await db.execute(
+        select(ScanHistory.scanned_at).where(ScanHistory.scanned_at >= lower_bound)
+    )
+    for ts in scan_rows.scalars().all():
+        if ts is None:
+            continue
+        key = ts.date().isoformat()
+        if key in trend_buckets:
+            trend_buckets[key] += 1
+    scan_trend = [{"date": d, "count": c} for d, c in trend_buckets.items()]
+
     return {
         "scans": await count(ScanHistory),
         "medications": await count(Medication, Medication.is_active.is_(True)),
         "reminders": await count(Reminder, Reminder.is_active.is_(True)),
         "queries": await count(UserQuery),
+        "scan_trend": scan_trend,
     }
 
 
