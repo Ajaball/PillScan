@@ -16,7 +16,7 @@ const STATUS_BADGE = {
 };
 
 // Bump this when the admin panel changes so deploys are easy to verify at a glance.
-const PANEL_VERSION = 'v8';
+const PANEL_VERSION = 'v9';
 
 const AdminPage = {
   render() {
@@ -58,6 +58,14 @@ const AdminPage = {
           </div>
         </div>
 
+        <!-- Assistant queries per user -->
+        <div class="section mt-6">
+          <h3 class="font-semibold mb-3">${i18n.t('admin_queries_by_user_title')}</h3>
+          <div id="queries-by-user" class="stagger-children">
+            <div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
+
         <!-- Pending requests -->
         <div class="section">
           <div class="flex items-center justify-between mb-3">
@@ -93,6 +101,7 @@ const AdminPage = {
     await Promise.all([
       this.loadDbStatus(),
       this.loadActivityStats(),
+      this.loadQueriesByUser(),
       this.loadPending(),
       this.loadAllUsers(),
     ]);
@@ -291,6 +300,50 @@ const AdminPage = {
     }).join('');
 
     el.innerHTML = `<div class="card"><div class="trend-chart">${cols}</div></div>`;
+  },
+
+  // Escape user-controlled text before interpolating into innerHTML.
+  esc(str) {
+    return String(str ?? '').replace(/[&<>"']/g, ch => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+  },
+
+  async loadQueriesByUser() {
+    const container = document.getElementById('queries-by-user');
+    if (!container) return;
+
+    try {
+      const data = await api.getQueryStatsByUser();
+      const users = Array.isArray(data?.users) ? data.users : [];
+
+      if (!users.length) {
+        container.innerHTML = `<div class="empty-state"><div class="text-4xl mb-2">💬</div><p class="text-secondary text-sm">${i18n.t('admin_queries_none')}</p></div>`;
+        return;
+      }
+
+      container.innerHTML = users.map(u => {
+        const name = this.esc(u.full_name || '-');
+        const initial = name.charAt(0) || 'U';
+        return `
+        <div class="card animate-fade-in-up mb-3">
+          <div class="flex items-center gap-3">
+            <div class="avatar avatar-md" style="background:var(--color-primary-gradient);">${initial}</div>
+            <div class="flex-1">
+              <h4 class="font-semibold text-sm">${name}</h4>
+              <p class="text-xs text-tertiary" dir="ltr">${this.esc(u.email || '')}</p>
+              <p class="text-xs text-secondary mt-1">
+                ${Number(u.recognized) || 0} ${i18n.t('admin_queries_recognized')}
+                · ${i18n.t('admin_queries_last')}: ${this.fmtDate(u.last_at)}
+              </p>
+            </div>
+            <span class="badge badge-primary text-xs">${Number(u.total) || 0} ${i18n.t('admin_queries_count')}</span>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      container.innerHTML = `<p class="text-center text-secondary text-sm">${err.message || i18n.t('error_generic')}</p>`;
+    }
   },
 
   async changeStatus(userId, status) {

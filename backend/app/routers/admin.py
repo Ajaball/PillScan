@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 
 from app.database import get_db
 from app.models.user import User
@@ -95,6 +95,51 @@ async def stats(
         "queries": await count(UserQuery),
         "scan_trend": scan_trend,
     }
+
+
+@router.get("/query-stats")
+async def query_stats(
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    [Admin] Per-user breakdown of drug-assistant lookups: how many queries each
+    user made, how many were recognized, and when they last searched. Only users
+    with at least one query appear, ordered by query count (most active first).
+    The ``case`` expression is portable across SQLite (tests) and Postgres (prod).
+    """
+    recognized_sum = func.sum(
+        case((UserQuery.recognized.is_(True), 1), else_=0)
+    )
+    query = (
+        select(
+            User.id,
+            User.full_name,
+            User.email,
+            func.count(UserQuery.id).label("total"),
+            recognized_sum.label("recognized"),
+            func.max(UserQuery.created_at).label("last_at"),
+        )
+        .join(UserQuery, UserQuery.user_id == User.id)
+        .group_by(User.id, User.full_name, User.email)
+        .order_by(func.count(UserQuery.id).desc(), func.max(UserQuery.created_at).desc())
+        .limit(limit)
+    )
+    rows = await db.execute(query)
+
+    users = []
+    for row in rows.all():
+        last_at = row.last_at
+        users.append({
+            "user_id": str(row.id),
+            "full_name": row.full_name,
+            "email": row.email,
+            "total": int(row.total or 0),
+            "recognized": int(row.recognized or 0),
+            "last_at": last_at.isoformat() if last_at is not None else None,
+        })
+    return {"users": users}
 
 
 @router.get("/users", response_model=list[AdminUserResponse])
