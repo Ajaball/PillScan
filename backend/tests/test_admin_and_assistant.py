@@ -147,6 +147,14 @@ class TestAdminAccessControl:
             assert key in data
             assert isinstance(data[key], int)
             assert data[key] >= 0
+        # 7-day scan trend: always exactly 7 ordered {date, count} buckets.
+        assert isinstance(data["scan_trend"], list)
+        assert len(data["scan_trend"]) == 7
+        for bucket in data["scan_trend"]:
+            assert set(bucket.keys()) == {"date", "count"}
+            assert isinstance(data["scan_trend"][0]["count"], int)
+        dates = [b["date"] for b in data["scan_trend"]]
+        assert dates == sorted(dates)  # chronological order
 
     @pytest.mark.asyncio
     async def test_stats_reflects_created_rows(
@@ -190,6 +198,10 @@ class TestAdminAccessControl:
         assert data["medications"] == 1  # only the active medication is counted
         assert data["reminders"] == 1  # only the active reminder is counted
         assert data["queries"] == 1
+        # Both scans were created "now", so today's bucket (the last one) holds
+        # them and the 7-day trend sums to the total scan count.
+        assert sum(b["count"] for b in data["scan_trend"]) == 2
+        assert data["scan_trend"][-1]["count"] == 2
 
 
 class TestAssistantGuard:

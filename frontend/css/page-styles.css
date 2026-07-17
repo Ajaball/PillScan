@@ -745,6 +745,43 @@
 .stat-error   { background: var(--color-error-bg); }
 .stat-total   { background: var(--color-surface); }
 
+/* Scan trend — dependency-free CSS bar chart (works offline) */
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 130px;
+}
+.trend-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.trend-count {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+.trend-bar {
+  width: 68%;
+  min-height: 4px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--color-primary-gradient);
+  transition: height 0.5s ease;
+}
+.trend-bar.is-empty { background: var(--color-surface-active); }
+.trend-label {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
 .stat-number {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);

@@ -16,7 +16,7 @@ const STATUS_BADGE = {
 };
 
 // Bump this when the admin panel changes so deploys are easy to verify at a glance.
-const PANEL_VERSION = 'v7';
+const PANEL_VERSION = 'v8';
 
 const AdminPage = {
   render() {
@@ -46,6 +46,14 @@ const AdminPage = {
           <h3 class="font-semibold mb-3">${i18n.t('admin_activity_title')}</h3>
           <div id="admin-activity" class="grid grid-2 gap-3">
             <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
+
+        <!-- Scan trend (last 7 days) -->
+        <div class="section mt-6">
+          <h3 class="font-semibold mb-3">${i18n.t('admin_scan_trend_title')}</h3>
+          <div id="scan-trend">
             <div class="skeleton skeleton-card"></div>
           </div>
         </div>
@@ -237,10 +245,52 @@ const AdminPage = {
           <div class="stat-number">${Number(s?.[c.key] ?? 0)}</div>
           <div class="stat-label">${i18n.t(c.label)}</div>
         </div>`).join('');
+      // The trend chart is fed by the same response — render it here too.
+      this.renderScanTrend(Array.isArray(s?.scan_trend) ? s.scan_trend : []);
     } catch (err) {
       el.className = '';
       el.innerHTML = `<p class="text-center text-secondary text-sm">${err.message || i18n.t('error_generic')}</p>`;
+      this.renderScanTrend(null);
     }
+  },
+
+  renderScanTrend(trend) {
+    const el = document.getElementById('scan-trend');
+    if (!el) return;
+
+    if (trend === null) {
+      el.innerHTML = `<p class="text-center text-secondary text-sm">${i18n.t('error_generic')}</p>`;
+      return;
+    }
+
+    const locale = i18n.lang === 'ar' ? 'ar-SA' : 'en-US';
+    const weekday = (iso) => {
+      // Parse at local noon so the weekday never shifts across time zones.
+      try { return new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { weekday: 'short' }); }
+      catch { return ''; }
+    };
+    const max = trend.reduce((m, d) => Math.max(m, Number(d.count) || 0), 0);
+
+    if (!max) {
+      el.innerHTML = `
+        <div class="card">
+          <p class="text-center text-secondary text-sm">${i18n.t('admin_scan_trend_empty')}</p>
+        </div>`;
+      return;
+    }
+
+    const cols = trend.map(d => {
+      const count = Number(d.count) || 0;
+      const pct = Math.round((count / max) * 100);
+      return `
+        <div class="trend-col">
+          <div class="trend-count">${count}</div>
+          <div class="trend-bar ${count === 0 ? 'is-empty' : ''}" style="height:${count === 0 ? 0 : Math.max(pct, 8)}%;"></div>
+          <div class="trend-label">${weekday(d.date)}</div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `<div class="card"><div class="trend-chart">${cols}</div></div>`;
   },
 
   async changeStatus(userId, status) {
