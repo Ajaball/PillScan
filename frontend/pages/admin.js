@@ -16,7 +16,7 @@ const STATUS_BADGE = {
 };
 
 // Bump this when the admin panel changes so deploys are easy to verify at a glance.
-const PANEL_VERSION = 'v9';
+const PANEL_VERSION = 'v10';
 
 const AdminPage = {
   render() {
@@ -130,6 +130,17 @@ const AdminPage = {
     if (!iso) return '';
     try {
       return new Date(iso).toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US');
+    } catch { return ''; }
+  },
+
+  fmtDateTime(iso) {
+    if (!iso) return '';
+    try {
+      const locale = i18n.lang === 'ar' ? 'ar-SA' : 'en-US';
+      return new Date(iso).toLocaleString(locale, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
     } catch { return ''; }
   },
 
@@ -325,9 +336,10 @@ const AdminPage = {
       container.innerHTML = users.map(u => {
         const name = this.esc(u.full_name || '-');
         const initial = name.charAt(0) || 'U';
+        const uid = this.esc(u.user_id || '');
         return `
-        <div class="card animate-fade-in-up mb-3">
-          <div class="flex items-center gap-3">
+        <div class="card animate-fade-in-up mb-3 query-user" data-user-id="${uid}">
+          <div class="flex items-center gap-3 query-user-row" role="button" tabindex="0" aria-expanded="false">
             <div class="avatar avatar-md" style="background:var(--color-primary-gradient);">${initial}</div>
             <div class="flex-1">
               <h4 class="font-semibold text-sm">${name}</h4>
@@ -338,12 +350,75 @@ const AdminPage = {
               </p>
             </div>
             <span class="badge badge-primary text-xs">${Number(u.total) || 0} ${i18n.t('admin_queries_count')}</span>
+            <svg class="query-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
           </div>
+          <div class="query-detail" hidden></div>
         </div>`;
       }).join('');
+
+      container.querySelectorAll('.query-user-row').forEach(row => {
+        const card = row.closest('.query-user');
+        row.addEventListener('click', () => this.toggleUserQueries(card));
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggleUserQueries(card); }
+        });
+      });
     } catch (err) {
       container.innerHTML = `<p class="text-center text-secondary text-sm">${err.message || i18n.t('error_generic')}</p>`;
     }
+  },
+
+  async toggleUserQueries(card) {
+    if (!card) return;
+    const detail = card.querySelector('.query-detail');
+    const row = card.querySelector('.query-user-row');
+    if (!detail) return;
+
+    // Collapse if already open.
+    if (!detail.hidden) {
+      detail.hidden = true;
+      card.classList.remove('is-expanded');
+      row?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    // Expand.
+    detail.hidden = false;
+    card.classList.add('is-expanded');
+    row?.setAttribute('aria-expanded', 'true');
+
+    // Lazy-load once.
+    if (detail.dataset.loaded === '1') return;
+    detail.innerHTML = `<div class="skeleton skeleton-text mt-3"></div>`;
+    try {
+      const data = await api.getUserQueries(card.dataset.userId);
+      const queries = Array.isArray(data?.queries) ? data.queries : [];
+      detail.innerHTML = this.renderQueryDetail(queries);
+      detail.dataset.loaded = '1';
+    } catch (err) {
+      detail.innerHTML = `<p class="text-center text-secondary text-xs mt-3">${err.message || i18n.t('error_generic')}</p>`;
+    }
+  },
+
+  renderQueryDetail(queries) {
+    if (!queries.length) {
+      return `<p class="text-center text-secondary text-xs mt-3">${i18n.t('admin_queries_detail_empty')}</p>`;
+    }
+    return `<div class="query-detail-list mt-3">` + queries.map(q => {
+      const recognized = q.recognized === true;
+      const badgeCls = recognized ? 'badge-success' : 'badge-warning';
+      const badgeTxt = recognized ? i18n.t('admin_queries_recognized') : i18n.t('admin_queries_not_recognized');
+      const resolved = recognized && q.recognized_name
+        ? ` · → <span class="font-semibold">${this.esc(q.recognized_name)}</span>` : '';
+      return `
+        <div class="query-item">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm font-medium">${this.esc(q.query_text || '-')}</span>
+            <span class="badge ${badgeCls} text-xs">${badgeTxt}</span>
+          </div>
+          <p class="text-xs text-tertiary mt-1">${this.fmtDateTime(q.created_at)}${resolved}</p>
+        </div>`;
+    }).join('') + `</div>`;
   },
 
   async changeStatus(userId, status) {

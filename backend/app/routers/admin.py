@@ -142,6 +142,39 @@ async def query_stats(
     return {"users": users}
 
 
+@router.get("/users/{user_id}/queries")
+async def user_queries(
+    user_id: UUID,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    [Admin] The individual drug-assistant lookups made by one user — the query
+    text, when it was made, whether the assistant recognized it, and (when
+    recognized) the drug name it resolved to. Newest first.
+    """
+    result = await db.execute(
+        select(UserQuery)
+        .where(UserQuery.user_id == user_id)
+        .order_by(UserQuery.created_at.desc())
+        .limit(limit)
+    )
+    queries = []
+    for q in result.scalars().all():
+        recognized_name = None
+        if q.recognized and isinstance(q.result, dict):
+            recognized_name = q.result.get("name") or None
+        queries.append({
+            "id": str(q.id),
+            "query_text": q.query_text,
+            "recognized": bool(q.recognized),
+            "recognized_name": recognized_name,
+            "created_at": q.created_at.isoformat() if q.created_at is not None else None,
+        })
+    return {"queries": queries}
+
+
 @router.get("/users", response_model=list[AdminUserResponse])
 async def list_users(
     status_filter: Optional[str] = Query(

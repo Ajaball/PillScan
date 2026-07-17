@@ -258,6 +258,78 @@ class TestAdminAccessControl:
         assert users[1]["total"] == 1
         assert users[1]["recognized"] == 1
 
+    @pytest.mark.asyncio
+    async def test_user_queries_admin_only(self, client: AsyncClient, test_user: dict):
+        response = await client.get(
+            f"/api/v1/admin/users/{test_user['id']}/queries",
+            headers=test_user["auth_header"],
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_user_queries_detail(
+        self, client: AsyncClient, admin_user: dict, test_user: dict, db_session
+    ):
+        """One user's individual queries: newest first, with recognized name."""
+        import uuid
+        from app.models.user_query import UserQuery
+
+        user_id = uuid.UUID(test_user["id"])
+        admin_id = uuid.UUID(admin_user["id"])
+        # Explicit, distinct timestamps so the newest-first ordering is genuinely
+        # testable. (SQLite's func.now() has 1s resolution, so two rows in one
+        # transaction would otherwise share a timestamp and make the ordering
+        # assertion vacuous — passing even if the endpoint sorted ascending.)
+        from datetime import datetime
+        older = datetime(2026, 1, 1, 10, 0, 0)
+        newer = datetime(2026, 1, 1, 10, 5, 0)
+        db_session.add_all([
+            UserQuery(user_id=user_id, query_text="بنادول", recognized=True,
+                      result={"name": "باراسيتامول"}, created_at=older),
+            UserQuery(user_id=user_id, query_text="زبالة", recognized=False,
+                      result=None, created_at=newer),
+            # Belongs to a different user — must NOT leak into this response.
+            UserQuery(user_id=admin_id, query_text="اسبرين", recognized=True),
+        ])
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/v1/admin/users/{test_user['id']}/queries",
+            headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        queries = response.json()["queries"]
+        # Only this user's two queries, never the admin's.
+        assert len(queries) == 2
+        texts = {q["query_text"] for q in queries}
+        assert texts == {"بنادول", "زبالة"}
+        # Newest first: "زبالة" (newer) must come before "بنادول" (older).
+        # Distinct timestamps make this fail if the endpoint sorts ascending.
+        assert [q["query_text"] for q in queries] == ["زبالة", "بنادول"]
+        # Shape + recognized_name resolution.
+        recognized = next(q for q in queries if q["query_text"] == "بنادول")
+        assert recognized["recognized"] is True
+        assert recognized["recognized_name"] == "باراسيتامول"
+        not_recognized = next(q for q in queries if q["query_text"] == "زبالة")
+        assert not_recognized["recognized"] is False
+        assert not_recognized["recognized_name"] is None
+        assert set(recognized.keys()) == {
+            "id", "query_text", "recognized", "recognized_name", "created_at",
+        }
+
+    @pytest.mark.asyncio
+    async def test_user_queries_empty_for_unknown_user(
+        self, client: AsyncClient, admin_user: dict
+    ):
+        """An admin querying a user with no history gets an empty list, not an error."""
+        import uuid
+        response = await client.get(
+            f"/api/v1/admin/users/{uuid.uuid4()}/queries",
+            headers=admin_user["auth_header"],
+        )
+        assert response.status_code == 200
+        assert response.json()["queries"] == []
+
 
 class TestAssistantGuard:
     @pytest.mark.asyncio
