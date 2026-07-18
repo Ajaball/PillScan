@@ -16,7 +16,7 @@ const STATUS_BADGE = {
 };
 
 // Bump this when the admin panel changes so deploys are easy to verify at a glance.
-const PANEL_VERSION = 'v10';
+const PANEL_VERSION = 'v11';
 
 const AdminPage = {
   render() {

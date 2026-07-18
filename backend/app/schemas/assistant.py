@@ -27,19 +27,30 @@ class DrugQueryHistoryItem(BaseModel):
 
 class DrugInfoResponse(BaseModel):
     """
-    Fixed-shape drug information returned by the assistant. The three display
-    fields are ALWAYS present and ALWAYS in this order:
-        1. name        — اسم الدواء
-        2. sideEffects — الأعراض الجانبية
-        3. usageTimes  — مواعيد الاستخدام
+    Comprehensive drug information returned by the assistant. All display fields
+    are ALWAYS present (empty when unknown) so the client can render whatever the
+    model provided:
+        name              — اسم الدواء
+        activeIngredient  — المادة الفعّالة
+        uses              — دواعي الاستعمال
+        dosage            — الجرعة المعتادة
+        sideEffects       — الأعراض الجانبية
+        warnings          — تحذيرات واحتياطات
+        contraindications — موانع الاستعمال
+        usageTimes        — مواعيد الاستخدام
 
-    ``recognized`` is False when the model does not confidently recognise the
-    drug (client shows a clear "not recognised" message instead of fabricated
+    ``recognized`` is False only when the model does not recognise the drug at
+    all (client shows a clear "not recognised" message instead of fabricated
     content). ``is_configured`` is False when no Gemini key is set. ``message``
-    carries a status/error note and is not one of the three display fields.
+    carries a status/error note and is not a display field.
     """
     name: str = ""                          # اسم الدواء
+    activeIngredient: str = ""              # المادة الفعّالة
+    uses: List[str] = []                    # دواعي الاستعمال
+    dosage: List[str] = []                  # الجرعة المعتادة
     sideEffects: List[str] = []             # الأعراض الجانبية
+    warnings: List[str] = []                # تحذيرات واحتياطات
+    contraindications: List[str] = []       # موانع الاستعمال
     usageTimes: List[str] = []              # مواعيد الاستخدام
     recognized: bool = False
 

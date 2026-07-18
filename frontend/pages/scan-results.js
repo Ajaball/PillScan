@@ -6,6 +6,8 @@
 import i18n from '../js/i18n.js';
 import router from '../js/router.js';
 import storage from '../js/storage.js';
+import api from '../js/api.js';
+import DrugAssistantPage from './drug-assistant.js';
 
 // Colors per detected pill rank
 const BOX_COLORS = ['#10B981', '#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
@@ -116,6 +118,14 @@ const ScanResultsPage = {
           </div>
         ` : ''}
 
+        <!-- ── AI Drug Info (Gemini) for the top match ── -->
+        ${topMatch ? `
+          <div class="mt-5">
+            <h3 class="font-semibold mb-3">${i18n.t('assistant_scan_info_title')}</h3>
+            <div id="scan-drug-info"></div>
+          </div>
+        ` : ''}
+
         <!-- ── Other Matches ── -->
         ${otherMatches.length > 0 ? `
           <h3 class="font-semibold mt-6 mb-3">${i18n.t('other_matches')}</h3>
@@ -170,6 +180,11 @@ const ScanResultsPage = {
         if (drugId) router.navigate('/drug/:id', { id: drugId });
       });
     });
+
+    // Fetch comprehensive AI drug info for the top match (scan → Gemini).
+    const scanResult = storage.get('last_scan_result');
+    const topMatch = scanResult?.predictions?.[0];
+    if (topMatch) this.loadDrugInfo(topMatch);
 
     // Draw bounding boxes after image loads
     const img = document.getElementById('scan-image');
@@ -252,6 +267,53 @@ const ScanResultsPage = {
       ctx.fillStyle = '#fff';
       ctx.fillText(label, rx + 6, labelY - 1);
     });
+  },
+
+  // Ask Gemini (via the assistant endpoint) for the identified drug's full
+  // profile and render it under the top match — so a scan gives the same rich
+  // info as a manual search.
+  async loadDrugInfo(topMatch) {
+    const container = document.getElementById('scan-drug-info');
+    if (!container) return;
+
+    const name = (i18n.lang === 'en')
+      ? (topMatch.drug_name_en || topMatch.drug_name_ar)
+      : (topMatch.drug_name_ar || topMatch.drug_name_en);
+    if (!name) { container.closest('.mt-5')?.remove(); return; }
+
+    container.innerHTML = `
+      <div class="card text-center" style="padding:var(--space-5);">
+        <div class="loading-dots" style="justify-content:center;"><span></span><span></span><span></span></div>
+        <p class="text-secondary text-sm mt-3">${i18n.t('assistant_scan_info_loading')}</p>
+      </div>`;
+
+    try {
+      const info = await api.getDrugInfo(name);
+
+      if (info.is_configured === false) {
+        container.innerHTML = `
+          <div class="card text-center">
+            <p class="text-secondary text-sm mb-3">${i18n.t('assistant_not_configured')}</p>
+            <button class="btn btn-primary btn-sm" id="scan-go-ai-settings">${i18n.t('ai_settings')}</button>
+          </div>`;
+        document.getElementById('scan-go-ai-settings')?.addEventListener('click', () => router.navigate('/ai-settings'));
+        return;
+      }
+
+      if (!info.recognized) {
+        container.innerHTML = `
+          <div class="card text-center">
+            <div class="text-3xl mb-2">🤔</div>
+            <p class="text-secondary text-sm">${i18n.t('assistant_not_recognized')}</p>
+          </div>`;
+        return;
+      }
+
+      // Reuse the assistant's comprehensive renderer.
+      container.innerHTML = DrugAssistantPage.renderDrugInfoHtml(info);
+    } catch (err) {
+      container.innerHTML = `<div class="card text-center"><p class="text-secondary text-sm">${(err && err.message) || i18n.t('error_generic')}</p></div>`;
+    }
   },
 
   getConfidenceColor(conf) {
