@@ -353,17 +353,19 @@ class TestAssistantGuard:
         data = response.json()
         assert data["is_configured"] is False
         assert data["recognized"] is False
-        # Fixed three-field contract is always present, in order.
-        assert list(data.keys())[:3] == ["name", "sideEffects", "usageTimes"]
+        # Comprehensive contract: all display fields present (empty when unknown).
+        for field in ("name", "activeIngredient", "uses", "dosage",
+                      "sideEffects", "warnings", "contraindications", "usageTimes"):
+            assert field in data
         assert data["sideEffects"] == []
         assert data["usageTimes"] == []
         assert data["message"]  # a setup hint is provided
 
     @pytest.mark.asyncio
-    async def test_assistant_returns_three_fields_in_order(
+    async def test_assistant_returns_comprehensive_fields(
         self, client: AsyncClient, test_user: dict, monkeypatch
     ):
-        """With a (mocked) model reply, the endpoint returns exactly the 3 fields."""
+        """With a (mocked) model reply, the endpoint returns the full drug profile."""
         # Give the user a key so resolution is non-empty.
         await client.put(
             "/api/v1/users/me/ai-settings",
@@ -374,7 +376,12 @@ class TestAssistantGuard:
         async def fake_ask(drug_name, api_key, model):
             return json.dumps({
                 "name": "بنادول",
+                "activeIngredient": "باراسيتامول",
+                "uses": ["خفض الحرارة", "تسكين الألم"],
+                "dosage": ["قرص كل 6 ساعات"],
                 "sideEffects": ["غثيان", "طفح جلدي نادر"],
+                "warnings": ["لا تتجاوز 4 جرام يوميًا"],
+                "contraindications": ["فشل كبدي شديد"],
                 "usageTimes": ["صباحًا", "مساءً بعد الأكل"],
                 "recognized": True,
             })
@@ -389,10 +396,11 @@ class TestAssistantGuard:
         assert r.status_code == 200
         data = r.json()
         assert data["recognized"] is True
-        assert list(data.keys())[:3] == ["name", "sideEffects", "usageTimes"]
         assert data["name"] == "بنادول"
+        assert data["activeIngredient"] == "باراسيتامول"
+        assert data["uses"] == ["خفض الحرارة", "تسكين الألم"]
+        assert data["dosage"] == ["قرص كل 6 ساعات"]
         assert data["sideEffects"] == ["غثيان", "طفح جلدي نادر"]
+        assert data["warnings"] == ["لا تتجاوز 4 جرام يوميًا"]
+        assert data["contraindications"] == ["فشل كبدي شديد"]
         assert data["usageTimes"] == ["صباحًا", "مساءً بعد الأكل"]
-        # Removed fields must not be present.
-        assert "dosage" not in data
-        assert "contraindications" not in data

@@ -26,20 +26,29 @@ class AssistantServiceError(Exception):
     """Raised when the assistant LLM call fails on every configured key."""
 
 
-# System prompt — Arabic, JSON-only, restricted to EXACTLY three fields in a
-# fixed order: name, sideEffects, usageTimes (+ recognized). No other fields.
+# System prompt — Arabic, JSON-only, COMPREHENSIVE drug information. The model
+# is asked to recognise common brand & generic medications (Gulf/Arab region and
+# worldwide) and return a full profile, not just three fields.
 SYSTEM_PROMPT_AR = (
-    "أنت مساعد دوائي تُجيب بالعربية. قدّم معلومات دوائية عامة وموثوقة عن الدواء "
-    "المطلوب بصيغة JSON فقط، وبهذه الحقول حصراً وبهذا الترتيب:\n"
-    "1) name: اسم الدواء (نص).\n"
-    "2) sideEffects: الأعراض الجانبية (مصفوفة نصية).\n"
-    "3) usageTimes: مواعيد/أوقات الاستخدام المعتادة (مصفوفة نصية، مثل: صباحًا، "
-    "مساءً، بعد الأكل).\n"
-    "4) recognized: true أو false.\n"
-    "قواعد صارمة: لا تُضِف أي حقول أخرى غير الأربعة أعلاه؛ لا تقدّم تشخيصاً ولا "
-    "تصف علاجاً لحالة بعينها؛ إن لم تتعرّف على الدواء أو لم تكن متأكداً اجعل "
-    "recognized=false ولا تختلق معلومات؛ لا تشجّع على إساءة الاستخدام أو الجرعات "
-    "الزائدة. أعد JSON فقط دون أي نص إضافي ودون أي حقول أخرى."
+    "أنت مساعد دوائي خبير تُجيب بالعربية الفصحى المبسّطة. عند إعطائك اسم دواء "
+    "(تجاري أو علمي، عربي أو إنجليزي، وقد يكون مكتوباً بأخطاء إملائية بسيطة) قدّم "
+    "معلومات دوائية عامة وموثوقة وشاملة عنه بصيغة JSON فقط، وبهذه الحقول وبهذا "
+    "الترتيب:\n"
+    "1) name: الاسم الصحيح للدواء (نص).\n"
+    "2) activeIngredient: المادة الفعّالة الرئيسية (نص).\n"
+    "3) uses: دواعي الاستعمال والاستخدامات (مصفوفة نصية).\n"
+    "4) dosage: الجرعة المعتادة للبالغين وطريقة الاستخدام (مصفوفة نصية).\n"
+    "5) sideEffects: الأعراض الجانبية المحتملة (مصفوفة نصية).\n"
+    "6) warnings: تحذيرات واحتياطات مهمة (مصفوفة نصية).\n"
+    "7) contraindications: موانع الاستعمال (متى يُمنع استخدامه) (مصفوفة نصية).\n"
+    "8) usageTimes: أوقات/مواعيد الاستخدام المعتادة (مصفوفة نصية، مثل: صباحًا، "
+    "بعد الأكل).\n"
+    "9) recognized: true إذا تعرّفت على الدواء، أو false فقط إذا لم يكن الاسم "
+    "دواءً معروفاً إطلاقاً.\n"
+    "قواعد: تعرّف على الأدوية الشائعة وأسمائها التجارية قدر الإمكان وصحّح الأخطاء "
+    "الإملائية البسيطة في الاسم؛ املأ كل حقل بما تعرفه ولا تتركه فارغاً بلا سبب؛ "
+    "لا تقدّم تشخيصاً لحالة فردية؛ لا تختلق معلومات غير صحيحة؛ لا تشجّع على إساءة "
+    "الاستخدام أو الجرعات الزائدة. أعد JSON فقط دون أي نص إضافي خارج الكائن."
 )
 
 # Shown as a persistent banner above the result (added by the API, not the model).
@@ -105,24 +114,50 @@ def _as_list(value: Any) -> list:
     return [str(value).strip()]
 
 
+def _as_text(value: Any) -> str:
+    """Coerce a field into a trimmed string (join lists), or '' if empty."""
+    if isinstance(value, list):
+        return "، ".join(str(v).strip() for v in value if str(v).strip())
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _normalize(parsed: dict, drug_name: str, model: str) -> dict:
     """
-    Shape the parsed model output into the fixed three-field contract. Missing
-    or wrongly-typed fields are coerced safely so the response is ALWAYS valid
-    and in order: name, sideEffects, usageTimes.
+    Shape the parsed model output into the comprehensive drug-info contract.
+    Missing or wrongly-typed fields are coerced safely so the response is ALWAYS
+    valid. A recognised reply is kept as long as it carries *any* substantive
+    content, so real medications are no longer wrongly rejected.
     """
     recognized = bool(parsed.get("recognized", False))
+
+    active_ingredient = _as_text(parsed.get("activeIngredient"))
+    uses = _as_list(parsed.get("uses"))
+    dosage = _as_list(parsed.get("dosage"))
     side_effects = _as_list(parsed.get("sideEffects"))
+    warnings = _as_list(parsed.get("warnings"))
+    contraindications = _as_list(parsed.get("contraindications"))
     usage_times = _as_list(parsed.get("usageTimes"))
 
-    # An "incomplete" recognized reply (no side effects AND no usage times) is
-    # treated as not-confidently-recognised rather than shown half-empty.
-    if recognized and not side_effects and not usage_times:
+    # Only flip to "not recognised" when the reply is genuinely empty of any
+    # substantive content — otherwise trust the model. (Previously a missing
+    # sideEffects+usageTimes pair wrongly rejected real drugs.)
+    has_content = any([
+        active_ingredient, uses, dosage, side_effects, warnings,
+        contraindications, usage_times,
+    ])
+    if recognized and not has_content:
         recognized = False
 
     return {
         "name": str(parsed.get("name") or drug_name).strip(),
+        "activeIngredient": active_ingredient,
+        "uses": uses,
+        "dosage": dosage,
         "sideEffects": side_effects,
+        "warnings": warnings,
+        "contraindications": contraindications,
         "usageTimes": usage_times,
         "recognized": recognized,
         "provider": "gemini",
@@ -135,8 +170,9 @@ def _normalize(parsed: dict, drug_name: str, model: str) -> dict:
 
 async def get_drug_info(drug_name: str, user: Optional[Any] = None, db: Any = None) -> dict:
     """
-    Look up general drug information for ``drug_name`` via Gemini and return it in
-    the fixed three-field shape (name, sideEffects, usageTimes).
+    Look up comprehensive drug information for ``drug_name`` via Gemini and return
+    it (name, activeIngredient, uses, dosage, sideEffects, warnings,
+    contraindications, usageTimes).
 
     Uses the requesting user's own keys, then admin-shared keys (when ``db`` is
     provided), then server env keys. Never raises for the "not configured",
@@ -146,7 +182,12 @@ async def get_drug_info(drug_name: str, user: Optional[Any] = None, db: Any = No
     model = settings.GEMINI_MODEL
     base = {
         "name": drug_name,
+        "activeIngredient": "",
+        "uses": [],
+        "dosage": [],
         "sideEffects": [],
+        "warnings": [],
+        "contraindications": [],
         "usageTimes": [],
         "recognized": False,
         "provider": "gemini",

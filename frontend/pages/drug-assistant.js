@@ -133,15 +133,41 @@ const DrugAssistantPage = {
     ));
   },
 
-  listCard(title, items) {
+  listCard(title, items, icon = '') {
     if (!items || !items.length) return '';
     return `
       <div class="card mb-3 animate-fade-in-up">
-        <h4 class="font-semibold text-sm mb-2">${title}</h4>
+        <h4 class="font-semibold text-sm mb-2">${icon ? icon + ' ' : ''}${title}</h4>
         <ul style="list-style:disc;padding-inline-start:20px;margin:0;">
           ${items.map(it => `<li class="text-sm text-secondary mb-1">${this.esc(it)}</li>`).join('')}
         </ul>
       </div>`;
+  },
+
+  // Renders the full comprehensive drug profile — shared by the assistant page
+  // and the scan-results page (returns an HTML string).
+  renderDrugInfoHtml(info) {
+    const active = info.activeIngredient
+      ? `<div class="card mb-3 animate-fade-in-up">
+           <h4 class="font-semibold text-sm mb-1">🧪 ${i18n.t('assistant_active_ingredient')}</h4>
+           <p class="text-sm text-secondary">${this.esc(info.activeIngredient)}</p>
+         </div>`
+      : '';
+    return `
+      <div class="card card-glow mb-3 animate-fade-in-up">
+        <div class="flex items-center gap-3">
+          <div class="avatar avatar-md" style="background:var(--color-primary-gradient);">💊</div>
+          <h3 class="font-bold text-base">${this.esc(info.name)}</h3>
+        </div>
+      </div>
+      ${active}
+      ${this.listCard(i18n.t('assistant_uses'), info.uses, '✅')}
+      ${this.listCard(i18n.t('assistant_dosage'), info.dosage, '💉')}
+      ${this.listCard(i18n.t('assistant_usage_times'), info.usageTimes, '⏰')}
+      ${this.listCard(i18n.t('assistant_side_effects'), info.sideEffects, '⚠️')}
+      ${this.listCard(i18n.t('assistant_warnings'), info.warnings, '❗')}
+      ${this.listCard(i18n.t('assistant_contraindications'), info.contraindications, '🚫')}
+    `;
   },
 
   renderResult(container, info) {
@@ -168,18 +194,8 @@ const DrugAssistantPage = {
       return;
     }
 
-    // Fixed three-field layout, always in this order:
-    // 1) اسم الدواء  2) الأعراض الجانبية  3) مواعيد الاستخدام
-    container.innerHTML = `
-      <div class="card card-glow mb-3 animate-fade-in-up">
-        <div class="flex items-center gap-3">
-          <div class="avatar avatar-md" style="background:var(--color-primary-gradient);">💊</div>
-          <h3 class="font-bold text-base">${this.esc(info.name)}</h3>
-        </div>
-      </div>
-      ${this.listCard(i18n.t('assistant_side_effects'), info.sideEffects)}
-      ${this.listCard(i18n.t('assistant_usage_times'), info.usageTimes)}
-    `;
+    // Full comprehensive drug profile.
+    container.innerHTML = this.renderDrugInfoHtml(info);
   },
 
   unmount() {},

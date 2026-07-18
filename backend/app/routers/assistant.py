@@ -52,7 +52,12 @@ async def drug_info(
             recognized=bool(result.get("recognized")),
             result={
                 "name": result.get("name", ""),
+                "activeIngredient": result.get("activeIngredient", ""),
+                "uses": result.get("uses", []),
+                "dosage": result.get("dosage", []),
                 "sideEffects": result.get("sideEffects", []),
+                "warnings": result.get("warnings", []),
+                "contraindications": result.get("contraindications", []),
                 "usageTimes": result.get("usageTimes", []),
             },
         ))

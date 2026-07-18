@@ -43,11 +43,11 @@ class Settings(BaseSettings):
     # or fails, the next is used.
     LLM_TIMEOUT_SECONDS: int = 60
 
-    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     # If the primary model returns 404 (not available on the caller's key/region),
     # these are tried in order so identification keeps working instead of failing.
     GEMINI_MODEL_FALLBACKS: list[str] = [
-        "gemini-2.5-flash",
+        "gemini-2.5-pro",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
     ]
